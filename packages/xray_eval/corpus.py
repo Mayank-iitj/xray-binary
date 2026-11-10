@@ -142,6 +142,9 @@ class ReferenceCorpus:
         self.log_odds: Dict[str, Dict[str, float]] = {}
         self._build_corpus()
 
+    def __len__(self) -> int:
+        return len(self.families)
+
     def _build_corpus(self) -> None:
         # Generate representative variations of each family with structural variations
         for fam in self.families:

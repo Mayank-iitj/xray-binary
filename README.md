@@ -172,3 +172,4 @@ When viewing the dashboard on `http://localhost:8000`:
 ## ⚖️ Ethics & Responsible Disclosure
 
 X-Ray Binary is purely **defensive**. It performs static-only analysis and does not execute files, detonate payloads, or communicate with Command & Control infrastructure. The Evasion Lab applies transformations exclusively to **benign open-source utility programs built from source**; no new malware or exploit code is generated or altered.
+# xray-binary

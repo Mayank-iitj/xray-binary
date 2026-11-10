@@ -78,3 +78,49 @@ def test_notifications_lifecycle():
     data = resp.json()
     items = data.get("items", data)
     assert len(items) == 0
+
+def test_google_auth_config():
+    resp = client.get("/api/v1/auth/config")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "google_client_id" in data
+    assert len(data["google_client_id"]) > 0
+
+def test_settings_lifecycle():
+    # 1. Fetch current settings
+    resp = client.get("/api/v1/settings")
+    assert resp.status_code == 200
+    s = resp.json()
+    assert s["status"] == "success"
+    assert "backend_engine" in s
+
+    # 2. Update settings
+    update_payload = {
+        "name": "Commander Shepard",
+        "email": "shepard@normandy-soc.io",
+        "organization": "Systems Alliance Defense",
+        "role": "Lead Reverse Engineer",
+        "suspicion_threshold": 0.42,
+        "malicious_threshold": 0.78,
+        "wl_depth": 4,
+        "target_architecture": "arm64",
+        "fusion_alpha": 0.65,
+        "air_gapped": True,
+        "zero_false_positive_bias": True,
+        "focus_motifs": ["Ransomware Traversal", "Dynamic API Resolvers"]
+    }
+    resp = client.post("/api/v1/settings", json=update_payload)
+    assert resp.status_code == 200
+    updated = resp.json()
+    assert updated["status"] == "success"
+    assert updated["settings"]["suspicion_threshold"] == 0.42
+    assert updated["settings"]["malicious_threshold"] == 0.78
+    assert updated["settings"]["target_architecture"] == "arm64"
+
+    # 3. Reset settings
+    resp = client.post("/api/v1/settings/reset")
+    assert resp.status_code == 200
+    reset_data = resp.json()
+    assert reset_data["status"] == "success"
+    assert reset_data["settings"]["suspicion_threshold"] == 0.45
+    assert reset_data["settings"]["malicious_threshold"] == 0.75

@@ -14,13 +14,24 @@ import time
 import json
 import uuid
 import hashlib
+import base64
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Any, Optional
 
+GOOGLE_CLIENT_ID = os.environ.get(
+    "GOOGLE_CLIENT_ID",
+    "xray-binary-google-client-id.apps.googleusercontent.com"
+)
+GOOGLE_CLIENT_SECRET = os.environ.get(
+    "GOOGLE_CLIENT_SECRET",
+    "xray-binary-client-secret-vault"
+)
+
 from fastapi import FastAPI, UploadFile, File, Form, Query, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse, Response, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 # Ensure packages directory is on sys.path
@@ -152,9 +163,11 @@ NOTIFICATIONS: List[Dict[str, Any]] = [
 # ----------------- Models -----------------
 class GoogleAuthRequest(BaseModel):
     credential: Optional[str] = None
+    token: Optional[str] = None
     email: Optional[str] = None
     name: Optional[str] = None
     avatar_url: Optional[str] = None
+    profile: Optional[Dict[str, Any]] = None
 
 class AuthLoginRequest(BaseModel):
     email: str
@@ -180,6 +193,20 @@ class OnboardingRequest(BaseModel):
     wl_depth: int = 3
     arch: Optional[str] = None
     target_architecture: Optional[str] = None
+
+class SettingsPayload(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    organization: Optional[str] = None
+    role: Optional[str] = None
+    suspicion_threshold: Optional[float] = None
+    malicious_threshold: Optional[float] = None
+    wl_depth: Optional[int] = None
+    target_architecture: Optional[str] = None
+    fusion_alpha: Optional[float] = None
+    air_gapped: Optional[bool] = None
+    zero_false_positive_bias: Optional[bool] = None
+    focus_motifs: Optional[List[str]] = None
 
 class CompareRequest(BaseModel):
     analysis_a: str = Field(..., description="First analysis ID or demo sample ID")
@@ -213,6 +240,14 @@ def get_metrics():
 
 # ----------------- Auth & Onboarding Endpoints -----------------
 
+@app.get("/api/v1/auth/config")
+def get_auth_config():
+    return {
+        "google_client_id": GOOGLE_CLIENT_ID,
+        "mode": "production",
+        "redirect_uri": "http://127.0.0.1:8000"
+    }
+
 @app.get("/api/v1/auth/me")
 def get_current_user():
     user = USERS.get(CURRENT_USER_ID, USERS["usr_default"])
@@ -224,6 +259,28 @@ def authenticate_google(payload: GoogleAuthRequest):
     email = payload.email or "analyst.google@xray-binary.io"
     name = payload.name or "Google Security Analyst"
     avatar = payload.avatar_url or "https://lh3.googleusercontent.com/a/default-user"
+
+    # Decode Google Identity Services (GIS) JWT ID Token if present
+    raw_jwt = payload.credential or payload.token
+    if raw_jwt and "." in raw_jwt:
+        parts = raw_jwt.split(".")
+        if len(parts) >= 2:
+            try:
+                padded = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
+                claims = json.loads(base64.urlsafe_b64decode(padded.decode("latin1") if isinstance(padded, bytes) else padded).decode("utf-8"))
+                if claims.get("email"):
+                    email = claims.get("email")
+                if claims.get("name"):
+                    name = claims.get("name")
+                if claims.get("picture"):
+                    avatar = claims.get("picture")
+            except Exception:
+                pass
+
+    if payload.profile:
+        email = payload.profile.get("email") or email
+        name = payload.profile.get("name") or name
+        avatar = payload.profile.get("avatar_url") or payload.profile.get("picture") or avatar
     
     # Check if user already exists
     user_id = None
@@ -251,6 +308,10 @@ def authenticate_google(payload: GoogleAuthRequest):
                 "arch": "x86_64"
             }
         }
+    else:
+        # Update user name and avatar if enriched from Google
+        USERS[user_id]["name"] = name
+        USERS[user_id]["avatar_url"] = avatar
         
     CURRENT_USER_ID = user_id
     user = USERS[user_id]
@@ -382,6 +443,109 @@ def logout():
     global CURRENT_USER_ID
     CURRENT_USER_ID = "usr_default"
     return {"status": "success", "message": "Logged out"}
+
+# ----------------- Settings Endpoints -----------------
+
+@app.get("/api/v1/settings")
+def get_settings():
+    user = USERS.get(CURRENT_USER_ID, USERS["usr_default"])
+    prefs = user.get("preferences", {})
+    return {
+        "status": "success",
+        "user_id": user.get("id"),
+        "name": user.get("name", "Senior Threat Analyst"),
+        "email": user.get("email", "analyst-01@xray-binary.io"),
+        "organization": user.get("organization") or user.get("org", "Cyber Defense Operations"),
+        "role": user.get("role", "Malware Reverse Engineer"),
+        "provider": user.get("provider", "google"),
+        "suspicion_threshold": user.get("suspicion_threshold") or prefs.get("suspicious_th", 0.45),
+        "malicious_threshold": user.get("malicious_threshold") or prefs.get("malicious_th", 0.75),
+        "wl_depth": prefs.get("wl_depth", 3),
+        "target_architecture": prefs.get("arch", "x86_64"),
+        "fusion_alpha": prefs.get("fusion_alpha", 0.60),
+        "air_gapped": prefs.get("air_gapped", True),
+        "zero_false_positive_bias": prefs.get("zero_false_positive_bias", True),
+        "focus_motifs": prefs.get("primary_focus", ["Ransomware Traversal", "Keylogger Input Hooks", "C2 Droppers", "Packed UPX & CFF"]),
+        "updated_at": time.time(),
+        "backend_engine": {
+            "version": "1.0.0+xray-core-release",
+            "model": "Weisfeiler-Lehman + 3-Layer GIN Fusion",
+            "corpus_samples": 4,
+            "offline_mode": True,
+            "latency_p95_ms": 142
+        }
+    }
+
+@app.post("/api/v1/settings")
+def update_settings(payload: SettingsPayload):
+    user = USERS.get(CURRENT_USER_ID, USERS["usr_default"])
+    if payload.name:
+        user["name"] = payload.name
+    if payload.email:
+        user["email"] = payload.email
+    if payload.organization:
+        user["organization"] = payload.organization
+        user["org"] = payload.organization
+    if payload.role:
+        user["role"] = payload.role
+    if payload.suspicion_threshold is not None:
+        user["suspicion_threshold"] = payload.suspicion_threshold
+        user["preferences"]["suspicious_th"] = payload.suspicion_threshold
+    if payload.malicious_threshold is not None:
+        user["malicious_threshold"] = payload.malicious_threshold
+        user["preferences"]["malicious_th"] = payload.malicious_threshold
+    if payload.wl_depth is not None:
+        user["preferences"]["wl_depth"] = payload.wl_depth
+    if payload.target_architecture is not None:
+        user["preferences"]["arch"] = payload.target_architecture
+    if payload.fusion_alpha is not None:
+        user["preferences"]["fusion_alpha"] = payload.fusion_alpha
+    if payload.air_gapped is not None:
+        user["preferences"]["air_gapped"] = payload.air_gapped
+    if payload.zero_false_positive_bias is not None:
+        user["preferences"]["zero_false_positive_bias"] = payload.zero_false_positive_bias
+    if payload.focus_motifs is not None:
+        user["preferences"]["primary_focus"] = payload.focus_motifs
+
+    # Push live notification
+    NOTIFICATIONS.insert(0, {
+        "id": f"notif_{uuid.uuid4().hex[:6]}",
+        "title": "Engine Configuration Calibrated",
+        "message": f"Updated thresholds (P_susp={user.get('suspicion_threshold', 0.45):.2f}, P_mal={user.get('malicious_threshold', 0.75):.2f}) and offline guardrails.",
+        "severity": "info",
+        "level": "success",
+        "sample_id": "demo-ransomware",
+        "timestamp": "Just now",
+        "time": "Just now",
+        "read": False
+    })
+
+    return {
+        "status": "success",
+        "message": "Settings updated and calibrated in real-time.",
+        "settings": get_settings()
+    }
+
+@app.post("/api/v1/settings/reset")
+def reset_settings():
+    user = USERS.get(CURRENT_USER_ID, USERS["usr_default"])
+    user["suspicion_threshold"] = 0.45
+    user["malicious_threshold"] = 0.75
+    user["preferences"] = {
+        "suspicious_th": 0.45,
+        "malicious_th": 0.75,
+        "primary_focus": ["Ransomware Traversal", "Keylogger Input Hooks", "C2 Droppers", "Packed UPX & CFF"],
+        "wl_depth": 3,
+        "arch": "x86_64",
+        "fusion_alpha": 0.60,
+        "air_gapped": True,
+        "zero_false_positive_bias": True
+    }
+    return {
+        "status": "success",
+        "message": "Settings restored to factory calibrated defaults.",
+        "settings": get_settings()
+    }
 
 # ----------------- Notifications Endpoints -----------------
 
@@ -713,7 +877,7 @@ def get_families():
     corpus = get_reference_corpus()
     return {
         "model_version": "1.0.0+xray-core-release",
-        "corpus_archetypes": len(corpus),
+        "corpus_archetypes": len(corpus.families),
         "families": [
             {
                 "name": "ransomware",
@@ -865,6 +1029,21 @@ def serve_landing():
     if os.path.exists(landing_path):
         return FileResponse(landing_path, media_type="text/html")
     return {"message": "X-Ray Binary landing page loading..."}
+
+@app.get("/login-photo.jpg")
+@app.get("/assets/login-photo.jpg")
+def serve_login_photo():
+    photo_path = os.path.join(root_dir, "apps", "web", "assets", "login-photo.jpg")
+    if os.path.exists(photo_path):
+        return FileResponse(photo_path, media_type="image/jpeg")
+    raise HTTPException(status_code=404, detail="Photo not found")
+
+@app.get("/assets/{asset_path:path}")
+def serve_static_asset(asset_path: str):
+    file_path = os.path.join(root_dir, "apps", "web", "assets", asset_path)
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    raise HTTPException(status_code=404, detail="Asset not found")
 
 @app.get("/app")
 @app.get("/dashboard")
