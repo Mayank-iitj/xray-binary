@@ -4,30 +4,6 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/",
-      "destination": "/apps/web/landing.html"
-    },
-    {
-      "source": "/app",
-      "destination": "/apps/web/index.html"
-    },
-    {
-      "source": "/dashboard",
-      "destination": "/apps/web/index.html"
-    },
-    {
-      "source": "/assets/:path*",
-      "destination": "/apps/web/assets/:path*"
-    },
-    {
-      "source": "/login-photo.jpg",
-      "destination": "/apps/web/assets/login-photo.jpg"
-    },
-    {
-      "source": "/favicon.ico",
-      "destination": "/apps/web/assets/favicon.ico"
-    },
-    {
       "source": "/api/:match*",
       "destination": "https://xray-binary-api.onrender.com/api/:match*"
     }
