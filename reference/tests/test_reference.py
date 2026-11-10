@@ -1,9 +1,17 @@
+import os
 import random
 import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from wl_kernel import wl_features, cosine, label_log_odds, node_scores
-from obfuscation import cff_score, xor_decode_loops, packing_indicators, shannon_entropy
+
+# Ensure both root and local execution paths are supported
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+try:
+    from reference.wl_kernel import cosine, label_log_odds, node_scores, wl_features
+    from reference.obfuscation import cff_score, packing_indicators, shannon_entropy, xor_decode_loops
+except ImportError:
+    from wl_kernel import cosine, label_log_odds, node_scores, wl_features  # type: ignore
+    from obfuscation import cff_score, packing_indicators, shannon_entropy, xor_decode_loops  # type: ignore
 
 def make_graph(seed):
     r = random.Random(seed); nodes, edges = {}, []
