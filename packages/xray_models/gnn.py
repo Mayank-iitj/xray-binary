@@ -13,7 +13,7 @@ and instant startup across all Python versions.
 """
 from __future__ import annotations
 import math
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Tuple, Any
 import numpy as np
 
 CLASSES = ["ransomware", "keylogger", "downloader", "benign"]

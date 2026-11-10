@@ -8,7 +8,7 @@ Labels combine:
 """
 from __future__ import annotations
 import re
-from typing import Dict, List, Set, Any
+from typing import Dict, List, Set, Iterable
 
 INSN_CLASSES = {
     # Data Movement

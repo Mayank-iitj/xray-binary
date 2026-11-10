@@ -31,3 +31,22 @@ dev = [
 [project.scripts]
 xray = "xray_core.cli:main"
 
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+ignore = [
+    "E402",  # Module level import not at top of file (sys.path initialization for local packages)
+    "E741",  # Ambiguous variable name
+    "E701",  # Multiple statements on one line (colon)
+    "E702",  # Multiple statements on one line (semicolon)
+]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+check_untyped_defs = false
+explicit_package_bases = true
+mypy_path = ["packages", "."]
+

@@ -5,7 +5,7 @@ All detectors return mathematical evidence with function addresses and metrics, 
 from __future__ import annotations
 import math
 from collections import Counter
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Any
 import networkx as nx
 
 def shannon_entropy(data: bytes) -> float:
@@ -103,10 +103,11 @@ def xor_decode_loops(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
         xors = []
         for op in insns:
             if isinstance(op, (list, tuple)) and len(op) >= 2:
-                mnemonic, operands = op[0].lower(), op[1].lower()
+                mnemonic = str(op[0] or "").lower()
+                operands = str(op[1] or "").lower()
             elif isinstance(op, dict):
-                mnemonic = op.get("mnemonic", op.get("type", "")).lower()
-                operands = op.get("operands", op.get("op_str", op.get("disasm", ""))).lower()
+                mnemonic = str(op.get("mnemonic") or op.get("type") or "").lower()
+                operands = str(op.get("operands") or op.get("op_str") or op.get("disasm") or "").lower()
             else:
                 continue
 
@@ -122,10 +123,11 @@ def xor_decode_loops(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
 
         for op in insns:
             if isinstance(op, (list, tuple)) and len(op) >= 2:
-                mnemonic, operands = op[0].lower(), op[1].lower()
+                mnemonic = str(op[0] or "").lower()
+                operands = str(op[1] or "").lower()
             elif isinstance(op, dict):
-                mnemonic = op.get("mnemonic", op.get("type", "")).lower()
-                operands = op.get("operands", op.get("op_str", op.get("disasm", ""))).lower()
+                mnemonic = str(op.get("mnemonic") or op.get("type") or "").lower()
+                operands = str(op.get("operands") or op.get("op_str") or op.get("disasm") or "").lower()
             else:
                 continue
 
@@ -195,10 +197,11 @@ def detect_junk_code(blocks: Dict[str, List[Any]]) -> Dict[str, Any]:
         total_insns += len(insns)
         for i, op in enumerate(insns):
             if isinstance(op, (list, tuple)) and len(op) >= 2:
-                mnemonic, operands = op[0].lower(), op[1].lower()
+                mnemonic = str(op[0] or "").lower()
+                operands = str(op[1] or "").lower()
             elif isinstance(op, dict):
-                mnemonic = op.get("mnemonic", op.get("type", "")).lower()
-                operands = op.get("operands", op.get("op_str", op.get("disasm", ""))).lower()
+                mnemonic = str(op.get("mnemonic") or op.get("type") or "").lower()
+                operands = str(op.get("operands") or op.get("op_str") or op.get("disasm") or "").lower()
             else:
                 continue
 

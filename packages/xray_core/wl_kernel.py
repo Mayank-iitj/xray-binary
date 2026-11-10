@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import math
 from collections import Counter, defaultdict
-from typing import Dict, Iterable, List, Tuple, Any
+from typing import Dict, Iterable, List, Tuple
 
 def _blake_hash(s: str) -> str:
     return hashlib.blake2b(s.encode("utf-8"), digest_size=8).hexdigest()
@@ -40,8 +40,8 @@ def wl_features(
             out_n[s].append(d)
             in_n[d].append(s)
 
-    labels = {n: _blake_hash(l) for n, l in nodes.items()}
-    feats: Counter = Counter(f"0:{l}" for l in labels.values())
+    labels = {n: _blake_hash(lbl) for n, lbl in nodes.items()}
+    feats: Counter = Counter(f"0:{lbl}" for lbl in labels.values())
     prov: Dict[str, List[str]] = {n: [f"0:{labels[n]}"] for n in nodes}
 
     for t in range(1, iters + 1):
@@ -51,7 +51,7 @@ def wl_features(
             i = ",".join(sorted(labels[m] for m in in_n[n]))
             new_labels[n] = _blake_hash(f"{labels[n]}|o:{o}|i:{i}")
         labels = new_labels
-        feats.update(f"{t}:{l}" for l in labels.values())
+        feats.update(f"{t}:{lbl}" for lbl in labels.values())
         for n in nodes:
             prov[n].append(f"{t}:{labels[n]}")
 
@@ -87,7 +87,7 @@ def build_idf(corpus: List[Counter]) -> Dict[str, float]:
     n = len(corpus)
     if n == 0:
         return {}
-    df = Counter()
+    df: Counter[str] = Counter()
     for doc in corpus:
         for k in doc.keys():
             df[k] += 1
@@ -104,12 +104,12 @@ def label_log_odds(
     log_odds(k) = log(P(k|family) / (1 - P(k|family))) - log(P(k|benign) / (1 - P(k|benign)))
     Skips depth 0 by default to focus on relational/topological motifs rather than isolated opcodes.
     """
-    fam_df = Counter()
+    fam_df: Counter[str] = Counter()
     for doc in family_docs:
         for k in doc.keys():
             fam_df[k] += 1
 
-    ben_df = Counter()
+    ben_df: Counter[str] = Counter()
     for doc in benign_docs:
         for k in doc.keys():
             ben_df[k] += 1
@@ -147,7 +147,7 @@ def node_scores(
     for n, labs in prov.items():
         # labs[0] is depth 0, labs[1:] are depth >= 1
         higher_depth_labs = labs[1:] if len(labs) > 1 else labs
-        vals = sorted([max(log_odds.get(l, 0.0), 0.0) for l in higher_depth_labs], reverse=True)[:top_k]
+        vals = sorted([max(log_odds.get(lbl, 0.0), 0.0) for lbl in higher_depth_labs], reverse=True)[:top_k]
         raw_score = sum(vals) / top_k if vals else 0.0
         # Smooth logistic mapping: 0 -> 0.05, 3.0 -> 0.73, 5.0 -> 0.92, 7.0+ -> ~0.98
         score = 1.0 / (1.0 + math.exp(-0.7 * (raw_score - 1.5))) if raw_score > 0 else 0.02

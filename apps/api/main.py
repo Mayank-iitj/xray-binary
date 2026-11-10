@@ -18,7 +18,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Any, Optional
 
-from fastapi import FastAPI, UploadFile, File, Form, Query, HTTPException, status, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, Query, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse, Response, FileResponse
 from pydantic import BaseModel, Field
@@ -88,7 +88,99 @@ EVASION_RUNS[DEFAULT_RUN_ID] = {
     **DEFAULT_EVASION
 }
 
+# ----------------- User Auth & Notifications State -----------------
+USERS: Dict[str, Dict[str, Any]] = {
+    "usr_default": {
+        "id": "usr_default",
+        "email": "analyst-01@xray-binary.io",
+        "name": "Senior Threat Analyst",
+        "avatar_url": None,
+        "provider": "google",
+        "onboarded": True,
+        "org": "Cyber Defense Operations",
+        "role": "Malware Reverse Engineer",
+        "preferences": {
+            "suspicious_th": 0.45,
+            "malicious_th": 0.75,
+            "primary_focus": ["Ransomware Defense", "APT & Packed Stubs"],
+            "wl_depth": 3,
+            "arch": "x86_64"
+        }
+    }
+}
+CURRENT_USER_ID = "usr_default"
+
+NOTIFICATIONS: List[Dict[str, Any]] = [
+    {
+        "id": "notif_001",
+        "title": "High-Confidence Ransomware Threat",
+        "message": "WannaCry Triad flagged with 96.2% confidence. CryptEncrypt and traversal loop detected.",
+        "level": "danger",
+        "sample_id": "demo-ransomware",
+        "time": "Just now",
+        "read": False
+    },
+    {
+        "id": "notif_002",
+        "title": "Unpacker Stub Identified",
+        "message": "Packed executable UPX0 section verified with 7.74 bits/byte entropy. Tagged as inconclusive_packed.",
+        "level": "warning",
+        "sample_id": "demo-packed",
+        "time": "14m ago",
+        "read": False
+    },
+    {
+        "id": "notif_003",
+        "title": "Zero-False-Positive Filter Pass",
+        "message": "Clean utility evaluated with 98.3% benign confidence. No malicious motifs detected.",
+        "level": "success",
+        "sample_id": "demo-benign",
+        "time": "1h ago",
+        "read": True
+    },
+    {
+        "id": "notif_004",
+        "title": "Adversarial Evasion Study Complete",
+        "message": "CFF resistance benchmark passed with 91.7% survival vs traditional AV baseline (58.3%).",
+        "level": "info",
+        "sample_id": "demo-downloader",
+        "time": "3h ago",
+        "read": True
+    }
+]
+
 # ----------------- Models -----------------
+class GoogleAuthRequest(BaseModel):
+    credential: Optional[str] = None
+    email: Optional[str] = None
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+class AuthLoginRequest(BaseModel):
+    email: str
+    password: str
+
+class AuthSignupRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+
+class OnboardingRequest(BaseModel):
+    user_id: Optional[str] = None
+    name: str = "Security Analyst"
+    org: Optional[str] = None
+    organization: Optional[str] = None
+    role: str = "Malware Reverse Engineer"
+    suspicious_th: Optional[float] = None
+    suspicion_threshold: Optional[float] = None
+    malicious_th: Optional[float] = None
+    malicious_threshold: Optional[float] = None
+    primary_focus: Optional[List[str]] = None
+    focus_motifs: Optional[List[str]] = None
+    wl_depth: int = 3
+    arch: Optional[str] = None
+    target_architecture: Optional[str] = None
+
 class CompareRequest(BaseModel):
     analysis_a: str = Field(..., description="First analysis ID or demo sample ID")
     analysis_b: str = Field(..., description="Second analysis ID or demo sample ID")
@@ -118,6 +210,209 @@ def get_metrics():
         "evasion_runs_total": len(EVASION_RUNS),
         "corpus_families": ["ransomware", "keylogger", "downloader", "benign"],
     }
+
+# ----------------- Auth & Onboarding Endpoints -----------------
+
+@app.get("/api/v1/auth/me")
+def get_current_user():
+    user = USERS.get(CURRENT_USER_ID, USERS["usr_default"])
+    return {"user": user, "authenticated": True}
+
+@app.post("/api/v1/auth/google")
+def authenticate_google(payload: GoogleAuthRequest):
+    global CURRENT_USER_ID
+    email = payload.email or "analyst.google@xray-binary.io"
+    name = payload.name or "Google Security Analyst"
+    avatar = payload.avatar_url or "https://lh3.googleusercontent.com/a/default-user"
+    
+    # Check if user already exists
+    user_id = None
+    for uid, u in USERS.items():
+        if u.get("email") == email:
+            user_id = uid
+            break
+            
+    if not user_id:
+        user_id = f"usr_{uuid.uuid4().hex[:8]}"
+        USERS[user_id] = {
+            "id": user_id,
+            "email": email,
+            "name": name,
+            "avatar_url": avatar,
+            "provider": "google",
+            "onboarded": False,  # First-time Google user requires onboarding
+            "org": "Global SOC & Threat Defense",
+            "role": "Malware Reverse Engineer",
+            "preferences": {
+                "suspicious_th": 0.45,
+                "malicious_th": 0.75,
+                "primary_focus": ["Ransomware Defense", "APT & Packed Stubs"],
+                "wl_depth": 3,
+                "arch": "x86_64"
+            }
+        }
+        
+    CURRENT_USER_ID = user_id
+    user = USERS[user_id]
+    return {
+        "status": "success",
+        "token": f"xray_jwt_{user_id}",
+        "user": user,
+        "needs_onboarding": not user.get("onboarded", False)
+    }
+
+@app.post("/api/v1/auth/login")
+def login(payload: AuthLoginRequest):
+    global CURRENT_USER_ID
+    for uid, u in USERS.items():
+        if u.get("email") == payload.email:
+            CURRENT_USER_ID = uid
+            return {
+                "status": "success",
+                "token": f"xray_jwt_{uid}",
+                "user": u,
+                "needs_onboarding": not u.get("onboarded", False)
+            }
+            
+    # Auto-provision analyst
+    uid = f"usr_{uuid.uuid4().hex[:8]}"
+    USERS[uid] = {
+        "id": uid,
+        "email": payload.email,
+        "name": payload.email.split("@")[0].replace(".", " ").title(),
+        "avatar_url": None,
+        "provider": "password",
+        "onboarded": False,
+        "org": "Cyber Defense Operations",
+        "role": "SOC Analyst",
+        "preferences": {
+            "suspicious_th": 0.45,
+            "malicious_th": 0.75,
+            "primary_focus": ["Ransomware Defense"],
+            "wl_depth": 3,
+            "arch": "x86_64"
+        }
+    }
+    CURRENT_USER_ID = uid
+    return {
+        "status": "success",
+        "token": f"xray_jwt_{uid}",
+        "user": USERS[uid],
+        "needs_onboarding": True
+    }
+
+@app.post("/api/v1/auth/signup")
+def signup(payload: AuthSignupRequest):
+    global CURRENT_USER_ID
+    uid = f"usr_{uuid.uuid4().hex[:8]}"
+    USERS[uid] = {
+        "id": uid,
+        "email": payload.email,
+        "name": payload.name,
+        "avatar_url": None,
+        "provider": "password",
+        "onboarded": False,  # MUST present onboarding!
+        "org": "Threat Intelligence Lab",
+        "role": "Malware Reverse Engineer",
+        "preferences": {
+            "suspicious_th": 0.45,
+            "malicious_th": 0.75,
+            "primary_focus": ["Ransomware Defense", "APT & Packed Stubs"],
+            "wl_depth": 3,
+            "arch": "x86_64"
+        }
+    }
+    CURRENT_USER_ID = uid
+    return {
+        "status": "success",
+        "token": f"xray_jwt_{uid}",
+        "user": USERS[uid],
+        "needs_onboarding": True
+    }
+
+@app.post("/api/v1/auth/onboarding")
+def complete_onboarding(payload: OnboardingRequest):
+    uid = payload.user_id or CURRENT_USER_ID
+    if uid not in USERS:
+        USERS[uid] = {"id": uid, "email": "analyst@xray-binary.io"}
+    
+    org_val = payload.organization or payload.org or "Mandiant Threat Defense"
+    susp_val = payload.suspicion_threshold if payload.suspicion_threshold is not None else (payload.suspicious_th or 0.45)
+    mal_val = payload.malicious_threshold if payload.malicious_threshold is not None else (payload.malicious_th or 0.75)
+    focus_val = payload.focus_motifs or payload.primary_focus or ["Ransomware Defense", "APT & Packed Stubs"]
+    arch_val = payload.target_architecture or payload.arch or "x86_64"
+
+    user = USERS[uid]
+    user["name"] = payload.name
+    user["org"] = org_val
+    user["organization"] = org_val
+    user["role"] = payload.role
+    user["onboarded"] = True
+    user["suspicion_threshold"] = susp_val
+    user["malicious_threshold"] = mal_val
+    user["preferences"] = {
+        "suspicious_th": susp_val,
+        "malicious_th": mal_val,
+        "primary_focus": focus_val,
+        "wl_depth": payload.wl_depth,
+        "arch": arch_val
+    }
+    
+    # Push customized notification acknowledging onboarding
+    NOTIFICATIONS.insert(0, {
+        "id": f"notif_{uuid.uuid4().hex[:6]}",
+        "title": "Onboarding Complete & Engine Tailored",
+        "message": f"Engine calibrated for {payload.name} ({org_val}). Thresholds set: Suspicious={susp_val}, Malicious={mal_val}.",
+        "severity": "info",
+        "level": "success",
+        "sample_id": "demo-ransomware",
+        "timestamp": "Just now",
+        "time": "Just now",
+        "read": False
+    })
+    
+    return {
+        "status": "success",
+        "message": "Onboarding completed and X-Ray Binary dashboard tailored successfully.",
+        "user": user
+    }
+
+@app.post("/api/v1/auth/logout")
+def logout():
+    global CURRENT_USER_ID
+    CURRENT_USER_ID = "usr_default"
+    return {"status": "success", "message": "Logged out"}
+
+# ----------------- Notifications Endpoints -----------------
+
+@app.get("/api/v1/notifications")
+def get_notifications():
+    unread_count = sum(1 for n in NOTIFICATIONS if not n.get("read", False))
+    return {
+        "total": len(NOTIFICATIONS),
+        "unread": unread_count,
+        "items": NOTIFICATIONS
+    }
+
+@app.post("/api/v1/notifications/{notif_id}/read")
+def mark_notification_read(notif_id: str):
+    for n in NOTIFICATIONS:
+        if n["id"] == notif_id:
+            n["read"] = True
+            return {"status": "success", "id": notif_id}
+    raise HTTPException(status_code=404, detail="Notification not found")
+
+@app.post("/api/v1/notifications/mark-all-read")
+def mark_all_notifications_read():
+    for n in NOTIFICATIONS:
+        n["read"] = True
+    return {"status": "success", "unread": 0}
+
+@app.delete("/api/v1/notifications")
+def clear_notifications():
+    global NOTIFICATIONS
+    NOTIFICATIONS = []
+    return {"status": "success", "total": 0}
 
 @app.get("/api/v1/samples")
 def list_samples(limit: int = 50, offset: int = 0):
@@ -276,7 +571,7 @@ async def stream_analysis_events(analysis_id: str):
                     payload = await asyncio.wait_for(queue.get(), timeout=1.0)
                     yield f"event: stage\ndata: {json.dumps(payload)}\n\n"
                 except asyncio.TimeoutError:
-                    yield f": keepalive\n\n"
+                    yield ": keepalive\n\n"
 
             # Final done event
             yield f"event: done\ndata: {json.dumps({'analysis_id': task.analysis_id, 'status': task.status, 'verdict': task.report.get('verdict')})}\n\n"
@@ -356,11 +651,11 @@ def get_analysis_obfuscation(analysis_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="Analysis not found.")
     obf = task.report.get("obfuscation", {})
-    sections = task.nodes_detail.get("__sections__", task.report.get("sample", {}))
+    sections = task.nodes_detail.get("__sections__") or task.report.get("sample", {}).get("sections", [])
     return {
         "analysis_id": task.analysis_id,
         "obfuscation": obf,
-        "sections": task.report.get("sample", {}).get("sections", []),
+        "sections": sections,
     }
 
 @app.post("/api/v1/compare")
@@ -418,6 +713,7 @@ def get_families():
     corpus = get_reference_corpus()
     return {
         "model_version": "1.0.0+xray-core-release",
+        "corpus_archetypes": len(corpus),
         "families": [
             {
                 "name": "ransomware",

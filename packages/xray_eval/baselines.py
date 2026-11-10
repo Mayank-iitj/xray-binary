@@ -5,7 +5,7 @@ unbiased, reproducible survival and retention comparisons.
 """
 from __future__ import annotations
 import hashlib
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 def evaluate_baselines(
     transform_id: str,

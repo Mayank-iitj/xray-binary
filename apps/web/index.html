@@ -255,14 +255,14 @@
 
     <!-- User Profile Footer -->
     <div class="p-3 border-t border-[#E8ECF2] bg-white">
-      <div class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition cursor-pointer">
+      <div onclick="openAuthModal()" class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition cursor-pointer" title="Click to Sign In with Google or Manage Analyst Account">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center font-bold text-blue-700 text-xs shadow-inner">
+          <div id="sidebar-user-avatar" class="w-9 h-9 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center font-bold text-blue-700 text-xs shadow-inner">
             SA
           </div>
           <div>
-            <div class="text-xs font-bold text-slate-800 leading-tight">Senior Threat Analyst</div>
-            <div class="text-[11px] text-slate-400 leading-tight font-mono">analyst-01@xray-binary.io</div>
+            <div id="sidebar-user-name" class="text-xs font-bold text-slate-800 leading-tight">Senior Threat Analyst</div>
+            <div id="sidebar-user-email" class="text-[11px] text-slate-400 leading-tight font-mono">analyst-01@xray-binary.io</div>
           </div>
         </div>
         <i data-lucide="shield" class="w-3.5 h-3.5 text-blue-600"></i>
@@ -300,10 +300,10 @@
           <span>Engine v1.0 • Offline Static</span>
         </div>
 
-        <!-- Notification Bell -->
-        <button class="relative p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition" title="Notifications">
+        <!-- Notification Bell (Functional Flyout) -->
+        <button id="notification-btn" onclick="toggleNotifications()" class="relative p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition" title="Threat Intelligence Alerts">
           <i data-lucide="bell" class="w-4 h-4"></i>
-          <span class="w-2 h-2 rounded-full bg-rose-500 absolute top-1.5 right-1.5 ring-2 ring-white"></span>
+          <span id="notification-badge" class="w-2.5 h-2.5 rounded-full bg-rose-500 absolute top-1.5 right-1.5 ring-2 ring-white"></span>
         </button>
 
         <!-- US Flag / Country Pill -->
@@ -311,6 +311,12 @@
           <span>🇺🇸</span>
           <span class="text-[11px] font-bold">US</span>
         </div>
+
+        <!-- Google OAuth / Analyst Profile Button -->
+        <button id="header-auth-btn" onclick="openAuthModal()" class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 text-xs font-semibold text-slate-700 transition" title="Sign In with Google or Manage Account">
+          <span id="header-user-avatar" class="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">SA</span>
+          <span id="header-user-name">Sign In</span>
+        </button>
 
         <!-- Settings Gear -->
         <button onclick="toggleHelpModal()" class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition" title="System Settings & Architecture">
@@ -994,7 +1000,254 @@
     </main>
   </div>
 
-  <!-- Help & Architecture Modal -->
+  <!-- Notification Flyout Drawer -->
+  <div id="notification-backdrop" onclick="toggleNotifications()" class="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 hidden transition-opacity"></div>
+  <div id="notification-panel" class="fixed inset-y-0 right-0 w-96 bg-white border-l border-slate-200 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+    <!-- Drawer Header -->
+    <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+          <i data-lucide="bell" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Threat Intel Feed</h3>
+          <p id="notif-unread-count" class="text-[11px] text-slate-400 font-mono">Loading alerts...</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button onclick="markAllNotificationsRead()" class="text-[11px] font-semibold text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 transition">Mark all read</button>
+        <button onclick="toggleNotifications()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Notification Items -->
+    <div id="notification-list" class="flex-1 overflow-y-auto p-4 space-y-3">
+      <!-- Populated dynamically via fetch('/api/v1/notifications') -->
+    </div>
+    
+    <!-- Drawer Footer -->
+    <div class="p-3.5 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between text-xs text-slate-500">
+      <span class="flex items-center gap-1.5 font-medium text-[11px]">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Stream Active
+      </span>
+      <button onclick="clearAllNotifications()" class="text-xs text-slate-400 hover:text-rose-600 transition">Clear all</button>
+    </div>
+  </div>
+
+  <!-- Authentication Modal (Sign In / Sign Up with Google OAuth) -->
+  <div id="auth-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-8 shadow-2xl space-y-5 relative animate-in fade-in zoom-in-95 duration-200">
+      <button onclick="closeAuthModal()" class="absolute top-5 right-5 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Logo & Title -->
+      <div class="text-center">
+        <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-blue-500/20">
+          <i data-lucide="shield" class="w-6 h-6"></i>
+        </div>
+        <h2 id="auth-modal-title" class="text-xl font-bold text-slate-900 font-sans">Analyst Authentication</h2>
+        <p class="text-xs text-slate-500 mt-0.5">X-Ray Binary Structural Malware Triage Platform</p>
+      </div>
+
+      <!-- Tab Switcher (Sign In vs Sign Up) -->
+      <div class="flex p-1 bg-slate-100 rounded-xl">
+        <button id="auth-tab-signin" onclick="switchAuthTab('signin')" class="flex-1 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm text-slate-900 transition">Sign In</button>
+        <button id="auth-tab-signup" onclick="switchAuthTab('signup')" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-500 hover:text-slate-900 transition">Sign Up</button>
+      </div>
+
+      <!-- Google OAuth Button -->
+      <div>
+        <button onclick="handleGoogleSignIn()" class="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-sm transition group">
+          <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span>Continue with Google</span>
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div class="relative flex items-center justify-center">
+        <div class="border-t border-slate-200 w-full"></div>
+        <span class="bg-white px-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">or email credentials</span>
+      </div>
+
+      <!-- Form -->
+      <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-3">
+        <div id="signup-name-field" class="hidden">
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Analyst Full Name</label>
+          <input type="text" id="auth-name" placeholder="Alex Chen" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Work Email</label>
+          <input type="email" id="auth-email" required placeholder="analyst@threat-defense.io" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+          <input type="password" id="auth-password" required placeholder="••••••••••••" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition">
+        </div>
+        <button type="submit" id="auth-submit-btn" class="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition">
+          Sign In to Console
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Mandatory Onboarding & Tailoring Wizard Modal -->
+  <div id="onboarding-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl border border-slate-200 max-w-xl w-full p-8 shadow-2xl space-y-6 relative animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Wizard Step Indicator -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider font-mono">TAILOR X-RAY BINARY</span>
+          <h2 class="text-lg font-bold text-slate-900">Analyst & Engine Onboarding</h2>
+        </div>
+        <div class="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-400">
+          <span id="step-pill-1" class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px]">1</span>
+          <span class="text-slate-300">─</span>
+          <span id="step-pill-2" class="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-[11px]">2</span>
+          <span class="text-slate-300">─</span>
+          <span id="step-pill-3" class="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-[11px]">3</span>
+          <span class="text-slate-300">─</span>
+          <span id="step-pill-4" class="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-[11px]">4</span>
+        </div>
+      </div>
+
+      <!-- Step 1: Analyst Profile & SOC Unit -->
+      <div id="onboard-step-1" class="space-y-4">
+        <p class="text-xs text-slate-500">Configure your SOC identity and team mission to tailor automated triage reporting.</p>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Analyst Full Name</label>
+          <input type="text" id="onboard-name" value="Alex Chen" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Organization / SOC Unit</label>
+          <input type="text" id="onboard-org" value="Mandiant Threat Defense" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Operational Role</label>
+          <select id="onboard-role" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition">
+            <option value="Malware Reverse Engineer">Malware Reverse Engineer & Exploit Analyst</option>
+            <option value="SOC Tier-1 Triage">Tier-1 Rapid Incident Triage Specialist</option>
+            <option value="Threat Hunter / CTI">Threat Hunter & Cyber Threat Intelligence</option>
+            <option value="Incident Commander">DFIR / Incident Response Commander</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Step 2: Detection Sensitivity & Thresholds -->
+      <div id="onboard-step-2" class="space-y-4 hidden">
+        <p class="text-xs text-slate-500">Tune calibrated probability fusion thresholds for your organization's risk tolerance.</p>
+        <div>
+          <div class="flex justify-between items-center text-xs mb-1">
+            <label class="font-semibold text-slate-700">Suspicion Threshold P(Mal)</label>
+            <span id="onboard-susp-val" class="font-bold text-amber-600 font-mono">0.45</span>
+          </div>
+          <input type="range" id="onboard-susp-th" min="0.20" max="0.60" step="0.05" value="0.45" oninput="document.getElementById('onboard-susp-val').textContent = parseFloat(this.value).toFixed(2)" class="w-full accent-amber-500 cursor-pointer">
+          <p class="text-[10px] text-slate-400 mt-0.5">Below this threshold, samples are anchored as Clean Benign.</p>
+        </div>
+        <div>
+          <div class="flex justify-between items-center text-xs mb-1">
+            <label class="font-semibold text-slate-700">Malicious Verdict Threshold P(Mal)</label>
+            <span id="onboard-mal-val" class="font-bold text-rose-600 font-mono">0.75</span>
+          </div>
+          <input type="range" id="onboard-mal-th" min="0.60" max="0.90" step="0.05" value="0.75" oninput="document.getElementById('onboard-mal-val').textContent = parseFloat(this.value).toFixed(2)" class="w-full accent-rose-600 cursor-pointer">
+          <p class="text-[10px] text-slate-400 mt-0.5">Above this threshold, triggers high-confidence Malicious triage alert.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3 pt-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">WL Kernel Depth (h)</label>
+            <select id="onboard-wl-depth" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono">
+              <option value="3" selected>h = 3 (Default, Optimal F1)</option>
+              <option value="4">h = 4 (Deep Neighborhood)</option>
+              <option value="2">h = 2 (Fast Triage)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Target Binary Architecture</label>
+            <select id="onboard-arch" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono">
+              <option value="x86_64" selected>x86_64 (Windows & Linux)</option>
+              <option value="x86">x86 32-bit Legacy PE</option>
+              <option value="arm64">ARM64 ELF Linux</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Threat Horizon Focus -->
+      <div id="onboard-step-3" class="space-y-4 hidden">
+        <p class="text-xs text-slate-500">Select active structural motifs to prioritize on the dashboard and in triage streams.</p>
+        <div class="space-y-2 text-xs">
+          <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition">
+            <input type="checkbox" id="focus-ransomware" checked class="rounded text-blue-600 accent-blue-600 w-4 h-4">
+            <div>
+              <div class="font-bold text-slate-800">Ransomware Traversal & Cryptography</div>
+              <div class="text-[11px] text-slate-400">File enumeration loops chained directly to CryptEncrypt / write-back routines.</div>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition">
+            <input type="checkbox" id="focus-keylogger" checked class="rounded text-blue-600 accent-blue-600 w-4 h-4">
+            <div>
+              <div class="font-bold text-slate-800">Keylogger Input Hooks & Exfiltration</div>
+              <div class="text-[11px] text-slate-400">Low-level input hooks (SetWindowsHookEx) tied to periodic telemetry dispatch.</div>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition">
+            <input type="checkbox" id="focus-downloader" checked class="rounded text-blue-600 accent-blue-600 w-4 h-4">
+            <div>
+              <div class="font-bold text-slate-800">C2 Droppers & Staged Downloaders</div>
+              <div class="text-[11px] text-slate-400">HTTP/Socket client dispatch loops executing secondary binary payloads.</div>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition">
+            <input type="checkbox" id="focus-packed" checked class="rounded text-blue-600 accent-blue-600 w-4 h-4">
+            <div>
+              <div class="font-bold text-slate-800">Packed UPX & Control-Flow Flattening</div>
+              <div class="text-[11px] text-slate-400">Shannon entropy &gt;7.2, W+X sections, and CFF central switch dispatchers.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Step 4: Confirmation & Activation -->
+      <div id="onboard-step-4" class="space-y-4 hidden">
+        <div class="p-4 rounded-2xl bg-blue-50/50 border border-blue-100 space-y-2">
+          <div class="flex items-center gap-2 text-xs font-bold text-blue-700">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span>Calibration Ready to Apply</span>
+          </div>
+          <div class="text-xs text-slate-600 space-y-1">
+            <div>Analyst: <strong id="summary-name" class="text-slate-900">Alex Chen</strong> (<span id="summary-org">Mandiant Threat Defense</span>)</div>
+            <div>Role: <strong id="summary-role" class="text-slate-900">Malware Reverse Engineer</strong></div>
+            <div>Detection Range: <span class="font-mono text-amber-600">Suspicious: <span id="summary-susp">0.45</span></span> · <span class="font-mono text-rose-600">Malicious: <span id="summary-mal">0.75</span></span></div>
+            <div>Topology Depth: <strong id="summary-wl" class="font-mono text-slate-900">h = 3</strong> (Arch: <span id="summary-arch" class="font-mono">x86_64</span>)</div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-500">Your preferences will instantly tailor the Executive Dashboard, ReactFlow thresholds, and threat intelligence streams.</p>
+      </div>
+
+      <!-- Navigation Buttons -->
+      <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+        <button id="onboard-back-btn" onclick="prevOnboardingStep()" class="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600 transition disabled:opacity-30 disabled:pointer-events-none" disabled>
+          Back
+        </button>
+        <button id="onboard-next-btn" onclick="nextOnboardingStep()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center gap-1.5">
+          <span>Continue</span>
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
   <div id="help-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl border border-slate-200 max-w-2xl w-full p-6 shadow-dropdown space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -1020,6 +1273,518 @@
     let waterfallChartInstance = null;
     let revenueOrdersChart = null;
     let categoryDonutChart = null;
+
+    // User Session & Engine Tailoring State
+    let currentUser = null;
+    let currentOnboardingStep = 1;
+    let allNotifications = [];
+
+    // Lightweight Interactive Toast System
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      const bgClass = type === 'success' ? 'bg-emerald-600 text-white' : (type === 'error' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-white');
+      const iconName = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-circle' : 'info');
+      toast.className = `flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold pointer-events-auto transform transition-all duration-300 translate-y-2 opacity-0 ${bgClass}`;
+      toast.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4 shrink-0"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      lucide.createIcons({ root: toast });
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // Authentication Modal Controls
+    function openAuthModal(defaultTab = 'signin') {
+      const modal = document.getElementById('auth-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        switchAuthTab(defaultTab);
+      }
+    }
+
+    function closeAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function switchAuthTab(tab) {
+      const signinBtn = document.getElementById('auth-tab-signin');
+      const signupBtn = document.getElementById('auth-tab-signup');
+      const nameField = document.getElementById('signup-name-field');
+      const submitBtn = document.getElementById('auth-submit-btn');
+      const modalTitle = document.getElementById('auth-modal-title');
+      
+      if (tab === 'signup') {
+        signinBtn.classList.remove('bg-white', 'shadow-sm', 'text-slate-900');
+        signinBtn.classList.add('text-slate-500');
+        signupBtn.classList.add('bg-white', 'shadow-sm', 'text-slate-900');
+        signupBtn.classList.remove('text-slate-500');
+        if (nameField) nameField.classList.remove('hidden');
+        if (submitBtn) submitBtn.textContent = 'Create Analyst Account';
+        if (modalTitle) modalTitle.textContent = 'Join Threat Defense Lab';
+      } else {
+        signupBtn.classList.remove('bg-white', 'shadow-sm', 'text-slate-900');
+        signupBtn.classList.add('text-slate-500');
+        signinBtn.classList.add('bg-white', 'shadow-sm', 'text-slate-900');
+        signinBtn.classList.remove('text-slate-500');
+        if (nameField) nameField.classList.add('hidden');
+        if (submitBtn) submitBtn.textContent = 'Sign In to Console';
+        if (modalTitle) modalTitle.textContent = 'Analyst Authentication';
+      }
+    }
+
+    // Google OAuth Handler
+    async function handleGoogleSignIn() {
+      try {
+        const res = await fetch('/api/v1/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: 'google-oauth-mock-credential-' + Date.now(),
+            profile: {
+              name: 'Alex Chen',
+              email: 'alex.chen@mandiant.threat-defense.io',
+              avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80'
+            }
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          currentUser = data.user;
+          applyUserToUI(currentUser);
+          closeAuthModal();
+          showToast(`Signed in as ${currentUser.name} via Google OAuth`, 'success');
+          if (data.needs_onboarding) {
+            setTimeout(openOnboardingModal, 250);
+          }
+          await fetchNotifications();
+        } else {
+          showToast('Google Sign-In failed', 'error');
+        }
+      } catch (e) {
+        console.error(e);
+        showToast('Failed to connect to Google OAuth service', 'error');
+      }
+    }
+
+    // Email/Password Auth Form Handler
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const isSignUp = !document.getElementById('signup-name-field').classList.contains('hidden');
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+      const name = document.getElementById('auth-name').value || 'Security Analyst';
+
+      const endpoint = isSignUp ? '/api/v1/auth/signup' : '/api/v1/auth/login';
+      const payload = isSignUp ? { email, password, name } : { email, password };
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+          currentUser = data.user;
+          applyUserToUI(currentUser);
+          closeAuthModal();
+          showToast(`Welcome, ${currentUser.name}!`, 'success');
+          if (data.needs_onboarding) {
+            setTimeout(openOnboardingModal, 250);
+          }
+          await fetchNotifications();
+        } else {
+          showToast(data.detail || 'Authentication failed', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Authentication error occurred', 'error');
+      }
+    }
+
+    // Apply Active User Profile & Tailored Settings across UI
+    function applyUserToUI(user) {
+      if (!user) return;
+      const sName = document.getElementById('sidebar-user-name');
+      const sEmail = document.getElementById('sidebar-user-email');
+      const sAvatar = document.getElementById('sidebar-user-avatar');
+      const hName = document.getElementById('header-user-name');
+      const hAvatar = document.getElementById('header-user-avatar');
+      const dDate = document.getElementById('dashboard-live-date');
+
+      const initials = (user.name || 'SA').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+      if (sName) sName.textContent = user.name;
+      if (sEmail) sEmail.textContent = user.email;
+      if (sAvatar) {
+        if (user.avatar_url) {
+          sAvatar.innerHTML = `<img src="${user.avatar_url}" class="w-full h-full rounded-full object-cover" alt="avatar">`;
+        } else {
+          sAvatar.textContent = initials;
+        }
+      }
+      if (hName) hName.textContent = user.name.split(' ')[0];
+      if (hAvatar) {
+        if (user.avatar_url) {
+          hAvatar.innerHTML = `<img src="${user.avatar_url}" class="w-full h-full rounded-full object-cover" alt="avatar">`;
+        } else {
+          hAvatar.textContent = initials;
+        }
+      }
+
+      if (dDate) {
+        const org = user.organization || 'Mandiant Threat Defense';
+        const role = user.role || 'Malware Reverse Engineer';
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+        dDate.innerHTML = `<span class="text-blue-600 font-bold">${user.name}</span> (${role} • ${org}) • ${dateStr}`;
+      }
+
+      // Pre-fill onboarding fields
+      const obName = document.getElementById('onboard-name');
+      const obOrg = document.getElementById('onboard-org');
+      const obRole = document.getElementById('onboard-role');
+      const obSusp = document.getElementById('onboard-susp-th');
+      const obSuspVal = document.getElementById('onboard-susp-val');
+      const obMal = document.getElementById('onboard-mal-th');
+      const obMalVal = document.getElementById('onboard-mal-val');
+
+      if (obName) obName.value = user.name;
+      if (obOrg && user.organization) obOrg.value = user.organization;
+      if (obRole && user.role) obRole.value = user.role;
+      if (obSusp && user.suspicion_threshold) {
+        obSusp.value = user.suspicion_threshold;
+        if (obSuspVal) obSuspVal.textContent = parseFloat(user.suspicion_threshold).toFixed(2);
+      }
+      if (obMal && user.malicious_threshold) {
+        obMal.value = user.malicious_threshold;
+        if (obMalVal) obMalVal.textContent = parseFloat(user.malicious_threshold).toFixed(2);
+      }
+    }
+
+    async function loadUserProfile() {
+      try {
+        const res = await fetch('/api/v1/auth/me');
+        const data = await res.json();
+        if (data.status === 'authenticated') {
+          currentUser = data.user;
+          applyUserToUI(currentUser);
+          if (data.needs_onboarding) {
+            setTimeout(openOnboardingModal, 250);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load current user session', e);
+      }
+    }
+
+    // Onboarding Modal Wizard Controls
+    function openOnboardingModal() {
+      currentOnboardingStep = 1;
+      renderOnboardingStep();
+      const modal = document.getElementById('onboarding-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeOnboardingModal() {
+      const modal = document.getElementById('onboarding-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function renderOnboardingStep() {
+      for (let i = 1; i <= 4; i++) {
+        const stepEl = document.getElementById(`onboard-step-${i}`);
+        const pill = document.getElementById(`step-pill-${i}`);
+        if (stepEl) {
+          if (i === currentOnboardingStep) {
+            stepEl.classList.remove('hidden');
+          } else {
+            stepEl.classList.add('hidden');
+          }
+        }
+        if (pill) {
+          if (i < currentOnboardingStep) {
+            pill.className = 'w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[11px] font-bold';
+            pill.innerHTML = '✓';
+          } else if (i === currentOnboardingStep) {
+            pill.className = 'w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold';
+            pill.textContent = i;
+          } else {
+            pill.className = 'w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-[11px] font-bold';
+            pill.textContent = i;
+          }
+        }
+      }
+
+      const backBtn = document.getElementById('onboard-back-btn');
+      const nextBtn = document.getElementById('onboard-next-btn');
+      if (backBtn) {
+        backBtn.disabled = (currentOnboardingStep === 1);
+      }
+      if (nextBtn) {
+        if (currentOnboardingStep === 4) {
+          nextBtn.innerHTML = `<span>Activate Engine Tailoring</span><i data-lucide="check" class="w-3.5 h-3.5"></i>`;
+          nextBtn.className = 'px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition flex items-center gap-1.5';
+        } else {
+          nextBtn.innerHTML = `<span>Continue</span><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>`;
+          nextBtn.className = 'px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center gap-1.5';
+        }
+        lucide.createIcons({ root: nextBtn });
+      }
+
+      // Update summary in step 4
+      if (currentOnboardingStep === 4) {
+        const name = document.getElementById('onboard-name').value || 'Analyst';
+        const org = document.getElementById('onboard-org').value || 'Threat Defense';
+        const role = document.getElementById('onboard-role').value;
+        const suspTh = document.getElementById('onboard-susp-th').value;
+        const malTh = document.getElementById('onboard-mal-th').value;
+        const wl = document.getElementById('onboard-wl-depth').value;
+        const arch = document.getElementById('onboard-arch').value;
+
+        const sName = document.getElementById('summary-name');
+        const sOrg = document.getElementById('summary-org');
+        const sRole = document.getElementById('summary-role');
+        const sSusp = document.getElementById('summary-susp');
+        const sMal = document.getElementById('summary-mal');
+        const sWl = document.getElementById('summary-wl');
+        const sArch = document.getElementById('summary-arch');
+
+        if (sName) sName.textContent = name;
+        if (sOrg) sOrg.textContent = org;
+        if (sRole) sRole.textContent = role;
+        if (sSusp) sSusp.textContent = parseFloat(suspTh).toFixed(2);
+        if (sMal) sMal.textContent = parseFloat(malTh).toFixed(2);
+        if (sWl) sWl.textContent = `h = ${wl}`;
+        if (sArch) sArch.textContent = arch;
+      }
+    }
+
+    function prevOnboardingStep() {
+      if (currentOnboardingStep > 1) {
+        currentOnboardingStep--;
+        renderOnboardingStep();
+      }
+    }
+
+    function nextOnboardingStep() {
+      if (currentOnboardingStep < 4) {
+        currentOnboardingStep++;
+        renderOnboardingStep();
+      } else {
+        submitOnboarding();
+      }
+    }
+
+    async function submitOnboarding() {
+      const name = document.getElementById('onboard-name').value || 'Alex Chen';
+      const org = document.getElementById('onboard-org').value || 'Mandiant Threat Defense';
+      const role = document.getElementById('onboard-role').value || 'Malware Reverse Engineer';
+      const suspTh = parseFloat(document.getElementById('onboard-susp-th').value || 0.45);
+      const malTh = parseFloat(document.getElementById('onboard-mal-th').value || 0.75);
+      const wlDepth = parseInt(document.getElementById('onboard-wl-depth').value || 3);
+      const arch = document.getElementById('onboard-arch').value || 'x86_64';
+      
+      const focusMotifs = [];
+      if (document.getElementById('focus-ransomware')?.checked) focusMotifs.push('Ransomware Traversal');
+      if (document.getElementById('focus-keylogger')?.checked) focusMotifs.push('Keylogger Input Hooks');
+      if (document.getElementById('focus-downloader')?.checked) focusMotifs.push('C2 Droppers');
+      if (document.getElementById('focus-packed')?.checked) focusMotifs.push('Packed UPX & CFF');
+
+      try {
+        const res = await fetch('/api/v1/auth/onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            organization: org,
+            role,
+            suspicion_threshold: suspTh,
+            malicious_threshold: malTh,
+            wl_depth: wlDepth,
+            target_architecture: arch,
+            focus_motifs: focusMotifs
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          currentUser = data.user;
+          applyUserToUI(currentUser);
+          closeOnboardingModal();
+          showToast(`Engine tailored for ${currentUser.name} (${org})!`, 'success');
+          await fetchNotifications();
+          // If in graph tab, re-render graph with new calibrated thresholds
+          if (document.getElementById('tab-graph') && !document.getElementById('tab-graph').classList.contains('hidden')) {
+            renderCallGraph();
+          }
+        } else {
+          showToast('Could not save onboarding profile', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to submit onboarding configuration', 'error');
+      }
+    }
+
+    // Notifications Drawer Controls & Threat Feed
+    function toggleNotifications() {
+      const panel = document.getElementById('notification-panel');
+      const backdrop = document.getElementById('notification-backdrop');
+      if (!panel || !backdrop) return;
+
+      const isClosed = panel.classList.contains('translate-x-full');
+      if (isClosed) {
+        panel.classList.remove('translate-x-full');
+        backdrop.classList.remove('hidden');
+        fetchNotifications();
+      } else {
+        panel.classList.add('translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+    }
+
+    async function fetchNotifications() {
+      try {
+        const res = await fetch('/api/v1/notifications');
+        const data = await res.json();
+        const notifs = Array.isArray(data) ? data : (data.items || []);
+        allNotifications = notifs;
+        renderNotifications(notifs);
+      } catch (err) {
+        console.error('Failed to load notifications', err);
+      }
+    }
+
+    function renderNotifications(notifs) {
+      const list = document.getElementById('notification-list');
+      const countEl = document.getElementById('notif-unread-count');
+      const badge = document.getElementById('notification-badge');
+      if (!list) return;
+
+      const unreadCount = notifs.filter(n => !n.read).length;
+      if (countEl) countEl.textContent = `${unreadCount} unread incident alert${unreadCount === 1 ? '' : 's'}`;
+      
+      if (badge) {
+        if (unreadCount > 0) {
+          badge.classList.remove('hidden');
+          badge.textContent = unreadCount;
+        } else {
+          badge.classList.add('hidden');
+        }
+      }
+
+      if (notifs.length === 0) {
+        list.innerHTML = `
+          <div class="text-center py-12 text-slate-400">
+            <i data-lucide="bell-off" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+            <p class="text-xs">No notifications in feed</p>
+          </div>
+        `;
+        lucide.createIcons({ root: list });
+        return;
+      }
+
+      list.innerHTML = '';
+      notifs.forEach(n => {
+        const sev = n.severity || (n.level === 'danger' ? 'malicious' : (n.level === 'warning' ? 'suspicious' : 'info'));
+        const timeStr = n.timestamp || n.time || 'Recently';
+
+        const severityColors = {
+          malicious: 'border-rose-200 bg-rose-50/50 hover:bg-rose-50',
+          suspicious: 'border-amber-200 bg-amber-50/50 hover:bg-amber-50',
+          info: 'border-blue-100 bg-blue-50/30 hover:bg-blue-50/60'
+        };
+        const badgeColors = {
+          malicious: 'bg-rose-100 text-rose-700',
+          suspicious: 'bg-amber-100 text-amber-700',
+          info: 'bg-blue-100 text-blue-700'
+        };
+        const iconNames = {
+          malicious: 'alert-triangle',
+          suspicious: 'shield-alert',
+          info: 'info'
+        };
+
+        const color = severityColors[sev] || severityColors.info;
+        const bColor = badgeColors[sev] || badgeColors.info;
+        const icon = iconNames[sev] || 'info';
+
+        const item = document.createElement('div');
+        item.className = `p-3.5 rounded-2xl border transition cursor-pointer relative ${color} ${n.read ? 'opacity-65' : 'ring-1 ring-blue-500/10'}`;
+        item.innerHTML = `
+          <div class="flex items-start justify-between gap-2 mb-1.5">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${bColor}">
+              ${sev}
+            </span>
+            <span class="text-[10px] font-mono text-slate-400">${timeStr}</span>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <div class="p-1.5 rounded-lg bg-white shrink-0 shadow-xs text-slate-700 mt-0.5">
+              <i data-lucide="${icon}" class="w-4 h-4"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h4 class="text-xs font-bold text-slate-900 leading-tight">${n.title}</h4>
+              <p class="text-[11px] text-slate-600 mt-0.5 leading-snug">${n.message}</p>
+            </div>
+          </div>
+          ${n.sample_id ? `<div class="mt-2 pt-2 border-t border-slate-200/50 flex items-center justify-between text-[10px] text-blue-600 font-semibold font-mono">
+            <span>Inspect Target: ${n.sample_id}</span>
+            <i data-lucide="chevron-right" class="w-3 h-3"></i>
+          </div>` : ''}
+        `;
+
+        item.onclick = async () => {
+          await markNotificationRead(n.id);
+          if (n.sample_id) {
+            toggleNotifications();
+            switchTab('dashboard');
+            loadPresetSample(n.sample_id);
+          }
+        };
+        list.appendChild(item);
+      });
+      lucide.createIcons({ root: list });
+    }
+
+    async function markNotificationRead(id) {
+      try {
+        await fetch(`/api/v1/notifications/${id}/read`, { method: 'POST' });
+        const notif = allNotifications.find(n => n.id === id);
+        if (notif) notif.read = true;
+        renderNotifications(allNotifications);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function markAllNotificationsRead() {
+      try {
+        await fetch('/api/v1/notifications/mark-all-read', { method: 'POST' });
+        allNotifications.forEach(n => n.read = true);
+        renderNotifications(allNotifications);
+        showToast('All notifications marked as read', 'info');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function clearAllNotifications() {
+      try {
+        await fetch('/api/v1/notifications', { method: 'DELETE' });
+        allNotifications = [];
+        renderNotifications(allNotifications);
+        showToast('Notification feed cleared', 'info');
+      } catch (err) {
+        console.error(err);
+      }
+    }
 
     // Sidebar Collapse Toggle
     function toggleSidebarCollapse() {
@@ -1744,8 +2509,10 @@
           });
 
           const FunctionCard = ({ data, id }) => {
-            const isMal = data.score >= 0.75;
-            const isSusp = data.score >= 0.40 && data.score < 0.75;
+            const suspTh = currentUser?.suspicion_threshold ?? 0.40;
+            const malTh = currentUser?.malicious_threshold ?? 0.75;
+            const isMal = data.score >= malTh;
+            const isSusp = data.score >= suspTh && data.score < malTh;
             const badgeCls = isMal ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' : (isSusp ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40');
             const borderCls = isMal ? 'border-rose-500/70 shadow-[0_0_15px_rgba(239,68,68,0.25)]' : (isSusp ? 'border-amber-500/50' : 'border-slate-700/80');
 
@@ -1791,9 +2558,11 @@
               children.push(React.createElement(Controls, { key: 'ctrl' }));
             }
             if (MiniMap) {
+              const suspTh = currentUser?.suspicion_threshold ?? 0.40;
+              const malTh = currentUser?.malicious_threshold ?? 0.75;
               children.push(React.createElement(MiniMap, {
                 key: 'map',
-                nodeColor: n => (n.data?.score >= 0.75 ? '#EF4444' : (n.data?.score >= 0.40 ? '#F59E0B' : '#10B981')),
+                nodeColor: n => (n.data?.score >= malTh ? '#EF4444' : (n.data?.score >= suspTh ? '#F59E0B' : '#10B981')),
                 maskColor: 'rgba(15, 23, 42, 0.75)'
               }));
             }
@@ -1842,8 +2611,10 @@
           const y = 50 + lvl * 180;
           nodeCoords[node.id] = { topX: x + 115, topY: y, botX: x + 115, botY: y + 96 };
 
-          const isMal = (node.score || 0) >= 0.75;
-          const isSusp = (node.score || 0) >= 0.40 && (node.score || 0) < 0.75;
+          const suspTh = currentUser?.suspicion_threshold ?? 0.40;
+          const malTh = currentUser?.malicious_threshold ?? 0.75;
+          const isMal = (node.score || 0) >= malTh;
+          const isSusp = (node.score || 0) >= suspTh && (node.score || 0) < malTh;
           const badgeBg = isMal ? 'rgba(239, 68, 68, 0.15)' : (isSusp ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)');
           const badgeColor = isMal ? '#F87171' : (isSusp ? '#FBBF24' : '#34D399');
           const borderStroke = isMal ? '#EF4444' : (isSusp ? '#F59E0B' : '#334155');
@@ -1912,8 +2683,10 @@
           .nodeVal(node => node.size || 16)
           .nodeColor(node => {
             const sc = node.score || 0.0;
-            if (sc >= 0.75) return '#EF4444';
-            if (sc >= 0.40) return '#F59E0B';
+            const suspTh = currentUser?.suspicion_threshold ?? 0.40;
+            const malTh = currentUser?.malicious_threshold ?? 0.75;
+            if (sc >= malTh) return '#EF4444';
+            if (sc >= suspTh) return '#F59E0B';
             return '#10B981';
           })
           .nodeLabel(node => `${node.id} — Suspicion: ${(node.score*100).toFixed(0)}% [${(node.api||[]).join('+')||'code'}]`)
@@ -2266,6 +3039,8 @@
     window.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
       initDashboardCharts();
+      await loadUserProfile();
+      await fetchNotifications();
 
       // Drag & Drop visual feedback on Dropzone
       const dz = document.getElementById('dropzone');

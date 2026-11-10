@@ -20,13 +20,12 @@ for p in (root_dir, packages_dir, apps_dir):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from xray_core.wl_kernel import wl_features, cosine, label_log_odds, node_scores
-from xray_core.labelling import extract_node_label, api_bucket
-from xray_core.obfuscation import shannon_entropy, cff_score, xor_decode_loops, packing_indicators
+from xray_core.wl_kernel import wl_features, cosine
+from xray_core.labelling import api_bucket
+from xray_core.obfuscation import cff_score, xor_decode_loops
 from xray_core.extractor import extract_binary_graph, parse_binary_metadata
 from xray_models.gnn import CallGraphGNN, extract_node_feature_matrix, build_edge_index
 from xray_models.fusion import fuse_scores
-from xray_eval.corpus import get_reference_corpus
 from xray_eval.evasion_lab import run_evasion_study
 from xray_eval.benchmarks import run_benchmarks
 from apps.api.demo_data import create_synthetic_pe_bytes

@@ -1,4 +1,6 @@
-import random, sys, os
+import random
+import sys
+import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from wl_kernel import wl_features, cosine, label_log_odds, node_scores
 from obfuscation import cff_score, xor_decode_loops, packing_indicators, shannon_entropy
@@ -35,7 +37,7 @@ def test_discriminative_nodes_highlighted():
     ben = [wl_features(*make_graph(s))[0] for s in range(30, 40)]
     lo = label_log_odds(fam, ben)
     f, prov = wl_features(*fam_graph(10)); sc = node_scores(prov, lo)
-    top = sorted(sc, key=sc.get, reverse=True)[:8]
+    top = sorted(sc, key=lambda k: sc[k], reverse=True)[:8]
     assert any(t in top for t in ("m0", "m1", "m2", "f0"))
 
 def flat_cfg(k=12):

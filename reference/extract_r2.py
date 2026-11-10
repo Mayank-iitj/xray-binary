@@ -5,7 +5,11 @@ run against a live radare2 in the authoring environment. Verify field names agai
 version on day 1 (see docs/ROADMAP_AND_RISKS.md, task D1-02). Run ONLY inside the analysis sandbox.
 """
 from __future__ import annotations
-import re, r2pipe
+import re
+try:
+    import r2pipe  # type: ignore[import-not-found,import-untyped]
+except ImportError:
+    r2pipe = None  # type: ignore[assignment]
 
 INSN_CLASSES = {  # r2 op "type" -> coarse instruction class (labels never contain raw bytes/names)
     "mov": "data", "lea": "data", "push": "stack", "pop": "stack", "upush": "stack",
@@ -35,6 +39,8 @@ def api_bucket(name: str) -> str | None:
     return None
 
 def extract(path: str, max_funcs: int = 20000) -> dict:
+    if r2pipe is None:
+        raise RuntimeError("r2pipe library is required for radare2 extraction")
     r = r2pipe.open(path, flags=["-2"])           # -2: silence stderr
     try:
         r.cmd("aaa")                               # full analysis; caller enforces wall-clock timeout
@@ -45,7 +51,8 @@ def extract(path: str, max_funcs: int = 20000) -> dict:
         for f in funcs:
             fid = hex(f["offset"])
             ops = (r.cmdj(f"pdfj @ {f['offset']}") or {}).get("ops", [])
-            prof, apis = {}, set()
+            prof: dict[str, int] = {}
+            apis: set[str] = set()
             for op in ops:
                 c = INSN_CLASSES.get(op.get("type"), "other"); prof[c] = prof.get(c, 0) + 1
                 if op.get("type") in ("call", "ucall"):

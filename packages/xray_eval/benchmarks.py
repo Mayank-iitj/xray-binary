@@ -10,14 +10,10 @@ Generates measured evaluation benchmarks complying with docs/EVALUATION_PLAN.md:
 from __future__ import annotations
 import os
 import json
-import random
-import math
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 def run_benchmarks(seed: int = 1337) -> Dict[str, Any]:
     """Computes comprehensive evaluation benchmarks across all reference families and baselines."""
-    rng = random.Random(seed)
-
     # 1. Overall Performance Metrics (Target: AUROC >= 0.97, TPR@1% FPR >= 0.90, Macro-F1 >= 0.85)
     overall = {
         "auroc": 0.984,

@@ -8,8 +8,7 @@ Combines two independent detection paradigms:
 Computes calibrated P(malware), verdict label, agreement metrics, and explainability narratives.
 """
 from __future__ import annotations
-import math
-from typing import Dict, List, Any, Tuple
+from typing import Dict, Any
 
 THRESHOLDS = {
     "suspicious": 0.45,

@@ -5,7 +5,8 @@ out-neighbour and in-neighbour labels. Feature vector = histogram of (depth, lab
 Labels are structure-only (instruction-class profile + API bucket), never raw bytes/names.
 """
 from __future__ import annotations
-import hashlib, math
+import hashlib
+import math
 from collections import Counter, defaultdict
 from typing import Dict, Iterable, List, Tuple
 

@@ -9,10 +9,9 @@ import os
 import sys
 import time
 import math
-import uuid
 import hashlib
 from collections import Counter
-from typing import Dict, List, Any, Tuple, Callable, Optional
+from typing import Dict, List, Any, Callable, Optional
 
 # Ensure packages directory is available
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -41,8 +40,9 @@ _GNN_MODEL: Optional[CallGraphGNN] = None
 def get_gnn_model() -> CallGraphGNN:
     global _GNN_MODEL
     if _GNN_MODEL is None:
-        _GNN_MODEL = CallGraphGNN(in_dim=28, hidden_dim=64, emb_dim=64, num_classes=4)
-        _GNN_MODEL.eval()
+        model = CallGraphGNN(in_dim=28, hidden_dim=64, emb_dim=64, num_classes=4)
+        model.eval()
+        _GNN_MODEL = model
     return _GNN_MODEL
 
 class AnalysisTask:
@@ -56,7 +56,7 @@ class AnalysisTask:
         self.status = "queued"  # queued, running, done, failed
         self.stage = "intake"
         self.progress = 0.05
-        self.stages = [
+        self.stages: List[Dict[str, Any]] = [
             {"name": "intake", "state": "pending", "ms": None},
             {"name": "triage", "state": "pending", "ms": None},
             {"name": "disassembly", "state": "pending", "ms": None},

@@ -1,0 +1,13 @@
+{
+  "include": [
+    "packages",
+    "reference",
+    "apps",
+    "tests"
+  ],
+  "extraPaths": [
+    "packages"
+  ],
+  "pythonVersion": "3.10",
+  "reportMissingTypeStubs": false
+}

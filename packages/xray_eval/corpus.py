@@ -8,8 +8,6 @@ for four primary classes:
 - Benign (file manipulation, arithmetic math routines, sorting, JSON parsing, clean UI event loop)
 """
 from __future__ import annotations
-import os
-import json
 import random
 from collections import Counter
 from typing import Dict, List, Tuple, Any
@@ -57,7 +55,6 @@ def build_ransomware_graph(seed: int = 42) -> Tuple[Dict[str, str], List[Tuple[s
 
 def build_keylogger_graph(seed: int = 101) -> Tuple[Dict[str, str], List[Tuple[str, str]], Dict[str, Any]]:
     """Synthesizes a realistic keylogger structural call graph."""
-    rng = random.Random(seed)
     nodes: Dict[str, str] = {}
     edges: List[Tuple[str, str]] = []
     meta: Dict[str, Any] = {}
@@ -84,7 +81,6 @@ def build_keylogger_graph(seed: int = 101) -> Tuple[Dict[str, str], List[Tuple[s
 
 def build_downloader_graph(seed: int = 202) -> Tuple[Dict[str, str], List[Tuple[str, str]], Dict[str, Any]]:
     """Synthesizes a realistic downloader / dropper structural call graph."""
-    rng = random.Random(seed)
     nodes: Dict[str, str] = {}
     edges: List[Tuple[str, str]] = []
     meta: Dict[str, Any] = {}
@@ -137,7 +133,7 @@ def build_benign_graph(seed: int = 303) -> Tuple[Dict[str, str], List[Tuple[str,
 
 class ReferenceCorpus:
     """Manages the reference malware family corpus, IDF vectors, and discriminative motif tables."""
-    def __init__(self):
+    def __init__(self) -> None:
         self.families = ["ransomware", "keylogger", "downloader", "benign"]
         self.corpus_graphs: Dict[str, List[Tuple[Dict[str, str], List[Tuple[str, str]]]]] = {}
         self.wl_vectors: Dict[str, List[Counter]] = {}
@@ -146,7 +142,7 @@ class ReferenceCorpus:
         self.log_odds: Dict[str, Dict[str, float]] = {}
         self._build_corpus()
 
-    def _build_corpus(self):
+    def _build_corpus(self) -> None:
         # Generate representative variations of each family with structural variations
         for fam in self.families:
             self.corpus_graphs[fam] = []

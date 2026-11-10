@@ -10,7 +10,6 @@ Generates realistic, fully populated analysis tasks for:
 from __future__ import annotations
 import os
 import sys
-import uuid
 import struct
 import random
 from typing import Dict, Any
@@ -20,12 +19,6 @@ packages_dir = os.path.join(root_dir, "packages")
 if packages_dir not in sys.path:
     sys.path.insert(0, packages_dir)
 
-from xray_eval.corpus import (
-    build_ransomware_graph,
-    build_keylogger_graph,
-    build_downloader_graph,
-    build_benign_graph,
-)
 
 def create_synthetic_pe_bytes(archetype: str) -> bytes:
     """Generates synthetic valid PE header bytes containing representative logic opcodes."""

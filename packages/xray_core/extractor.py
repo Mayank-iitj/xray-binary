@@ -5,9 +5,7 @@ stability, security isolation (files are NEVER executed or loaded as libraries),
 Optional r2pipe integration is supported when radare2 is present.
 """
 from __future__ import annotations
-import os
 import struct
-import math
 from collections import Counter, defaultdict
 from typing import Dict, List, Tuple, Any, Optional
 

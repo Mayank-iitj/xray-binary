@@ -49,7 +49,7 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
         file_bytes = f.read()
 
     if not (file_bytes.startswith(b"MZ") or file_bytes.startswith(b"\x7fELF")):
-        print(f"[!] Error: Unsupported file format. Magic bytes must indicate PE or ELF executable.", file=sys.stderr)
+        print("[!] Error: Unsupported file format. Magic bytes must indicate PE or ELF executable.", file=sys.stderr)
         return 1
 
     sha256_hash = hashlib.sha256(file_bytes).hexdigest()
@@ -62,7 +62,6 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
     node_metadata = extracted.get("node_metadata", {})
     q_vec, _ = wl_features(nodes_dict, edges_list, iters=3)
     wl_sims, top_fam, top_wl_score = corpus.score_sample(q_vec)
-    benign_sim = wl_sims.get("benign", 0.0)
 
     # GNN Inference
     x, node_to_idx = extract_node_feature_matrix(nodes_dict, node_metadata)
@@ -168,7 +167,7 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
 
 def compare_binaries(file_a: str, file_b: str) -> int:
     if not os.path.exists(file_a) or not os.path.exists(file_b):
-        print(f"[!] Error: Both files must exist.", file=sys.stderr)
+        print("[!] Error: Both files must exist.", file=sys.stderr)
         return 1
 
     with open(file_a, "rb") as fa, open(file_b, "rb") as fb:
