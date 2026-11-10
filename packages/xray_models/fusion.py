@@ -141,3 +141,4 @@ def _generate_verdict_narrative(
         return "Call graph exhibits downloader/dropper structure: HTTP network connection into payload download and child process execution."
     else:
         return "Program structure matches known reference threat profile."
+

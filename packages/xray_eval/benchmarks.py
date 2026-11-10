@@ -155,3 +155,4 @@ def run_benchmarks(seed: int = 1337) -> Dict[str, Any]:
         json.dump(benchmarks_data, f, indent=2)
 
     return benchmarks_data
+

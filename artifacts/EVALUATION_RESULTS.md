@@ -68,3 +68,4 @@ Evaluating the model when an entire malware family is completely withheld during
 
 1. **Packing:** When files are packed with UPX or proprietary packers, static graph analysis inspects the unpacker stub. X-Ray detects this via Shannon entropy and W+X permissions and explicitly reports `"inconclusive_packed"` rather than claiming false certainty.
 2. **Compiler Inlining:** Aggressive inlining (`-O3`) folds small helper functions into parent call nodes. Multi-depth Weisfeiler-Lehman retains 89% similarity by capturing higher-order neighborhood multiset hashes.
+

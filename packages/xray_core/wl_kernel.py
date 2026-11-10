@@ -153,3 +153,4 @@ def node_scores(
         score = 1.0 / (1.0 + math.exp(-0.7 * (raw_score - 1.5))) if raw_score > 0 else 0.02
         res[n] = round(score, 3)
     return res
+

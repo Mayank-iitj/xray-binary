@@ -225,3 +225,4 @@ def detect_junk_code(blocks: Dict[str, List[Any]]) -> Dict[str, Any]:
         "total_instructions": total_insns,
         "sample_locations": junk_locations
     }
+

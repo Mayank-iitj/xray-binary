@@ -145,3 +145,4 @@ def extract_node_label(
     bb_bucket = min(max(1, basic_block_count // 4), 10)
 
     return f"{prof_deciles}|api:{api_str}|cc:{cc_capped}|bb:{bb_bucket}"
+

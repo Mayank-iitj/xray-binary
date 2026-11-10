@@ -269,3 +269,4 @@ def run_evasion_study(
             "key_finding": "X-Ray Binary maintains >80% structural retention under strip, string encryption, and re-compilation, while traditional Hash & YARA baselines collapse to 0%."
         }
     }
+
