@@ -19,6 +19,12 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Any, Optional
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 GOOGLE_CLIENT_ID = os.environ.get(
     "GOOGLE_CLIENT_ID",
     "xray-binary-google-client-id.apps.googleusercontent.com"
