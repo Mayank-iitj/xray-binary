@@ -1566,8 +1566,37 @@
       // Try ReactFlow UMD Mounting if available
       if (window.React && window.ReactDOM && window.ReactFlow) {
         try {
-          const RF = window.ReactFlow.default || window.ReactFlow;
-          const { ReactFlow: FlowComponent, Background, Controls, MiniMap, Handle, Position, MarkerType } = RF;
+          const RF = window.ReactFlow;
+          const FlowComponent = RF.ReactFlow || RF.default || RF;
+          const Background = RF.Background;
+          const Controls = RF.Controls;
+          const MiniMap = RF.MiniMap;
+          const Handle = RF.Handle;
+          const Position = RF.Position || { Left: 'left', Top: 'top', Right: 'right', Bottom: 'bottom' };
+          const MarkerType = RF.MarkerType || { Arrow: 'arrow', ArrowClosed: 'arrowclosed' };
+
+          if (!FlowComponent || typeof FlowComponent !== 'function' && typeof FlowComponent !== 'object') {
+            throw new Error('FlowComponent not available');
+          }
+
+          // Error Boundary to prevent React error #130 from bubbling if subcomponent fails
+          class RFBoundary extends React.Component {
+            constructor(props) {
+              super(props);
+              this.state = { hasError: false };
+            }
+            static getDerivedStateFromError() {
+              return { hasError: true };
+            }
+            componentDidCatch(err) {
+              console.warn('ReactFlow boundary intercepted error, switching to native DAG:', err);
+              renderNativeReactFlowDAG(container, rawNodes, rawLinks, levelGroups);
+            }
+            render() {
+              if (this.state.hasError) return null;
+              return this.props.children;
+            }
+          }
 
           const rfNodes = [];
           Object.keys(levelGroups).forEach(lvlStr => {
@@ -1612,50 +1641,70 @@
             const badgeCls = isMal ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' : (isSusp ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40');
             const borderCls = isMal ? 'border-rose-500/70 shadow-[0_0_15px_rgba(239,68,68,0.25)]' : (isSusp ? 'border-amber-500/50' : 'border-slate-700/80');
 
+            const cardChildren = [];
+            if (Handle) {
+              cardChildren.push(React.createElement(Handle, { key: 'in', type: 'target', position: Position?.Top || 'top', className: '!bg-blue-500 !w-2.5 !h-2.5' }));
+            }
+            cardChildren.push(
+              React.createElement('div', { key: 'head', className: 'flex items-center justify-between gap-2 mb-2' }, [
+                React.createElement('span', { key: 'fn', className: 'font-mono text-xs font-bold text-blue-400' }, id),
+                React.createElement('span', { key: 'badge', className: `text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeCls}` }, `${Math.round(data.score * 100)}%`)
+              ])
+            );
+            cardChildren.push(
+              React.createElement('div', { key: 'apis', className: 'flex flex-wrap gap-1 mb-2.5' },
+                (data.api?.length ? data.api : ['code']).map(a => React.createElement('span', { key: a, className: 'px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-300 border border-slate-700' }, a))
+              )
+            );
+            cardChildren.push(
+              React.createElement('div', { key: 'meta', className: 'flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800 font-mono' }, [
+                React.createElement('span', { key: 'bl' }, `Blocks: ${data.blocks || 8}`),
+                React.createElement('span', { key: 'cy' }, `CC: ${data.cyclomatic || 3}`)
+              ])
+            );
+            if (Handle) {
+              cardChildren.push(React.createElement(Handle, { key: 'out', type: 'source', position: Position?.Bottom || 'bottom', className: '!bg-blue-500 !w-2.5 !h-2.5' }));
+            }
+
             return React.createElement('div', {
               onClick: () => openNodeInspector(id),
               className: `px-4 py-3 rounded-xl bg-[#0F172A] border ${borderCls} text-white cursor-pointer hover:border-blue-400 hover:scale-[1.02] transition duration-200 min-w-[220px] shadow-xl select-none`
-            }, [
-              React.createElement(Handle, { key: 'in', type: 'target', position: Position?.Top || 'top', className: '!bg-blue-500 !w-2.5 !h-2.5' }),
-              React.createElement('div', { key: 'head', className: 'flex items-center justify-between gap-2 mb-2' }, [
-                React.createElement('span', { className: 'font-mono text-xs font-bold text-blue-400' }, id),
-                React.createElement('span', { className: `text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeCls}` }, `${Math.round(data.score * 100)}%`)
-              ]),
-              React.createElement('div', { key: 'apis', className: 'flex flex-wrap gap-1 mb-2.5' },
-                (data.api?.length ? data.api : ['code']).map(a => React.createElement('span', { key: a, className: 'px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-300 border border-slate-700' }, a))
-              ),
-              React.createElement('div', { key: 'meta', className: 'flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800 font-mono' }, [
-                React.createElement('span', null, `Blocks: ${data.blocks || 8}`),
-                React.createElement('span', null, `CC: ${data.cyclomatic || 3}`)
-              ]),
-              React.createElement(Handle, { key: 'out', type: 'source', position: Position?.Bottom || 'bottom', className: '!bg-blue-500 !w-2.5 !h-2.5' })
-            ]);
+            }, cardChildren);
           };
 
           const nodeTypes = { functionCard: FunctionCard };
 
           const ReactFlowCanvas = () => {
+            const children = [];
+            if (Background) {
+              children.push(React.createElement(Background, { key: 'bg', variant: 'dots', gap: 16, size: 1, color: '#334155' }));
+            }
+            if (Controls) {
+              children.push(React.createElement(Controls, { key: 'ctrl' }));
+            }
+            if (MiniMap) {
+              children.push(React.createElement(MiniMap, {
+                key: 'map',
+                nodeColor: n => (n.data?.score >= 0.75 ? '#EF4444' : (n.data?.score >= 0.40 ? '#F59E0B' : '#10B981')),
+                maskColor: 'rgba(15, 23, 42, 0.75)'
+              }));
+            }
+
             return React.createElement(FlowComponent, {
               nodes: rfNodes,
               edges: rfEdges,
               nodeTypes: nodeTypes,
               fitView: true,
               style: { backgroundColor: '#0A0E17', width: '100%', height: '100%' }
-            }, [
-              React.createElement(Background, { key: 'bg', variant: 'dots', gap: 16, size: 1, color: '#334155' }),
-              React.createElement(Controls, { key: 'ctrl' }),
-              React.createElement(MiniMap, {
-                key: 'map',
-                nodeColor: n => (n.data?.score >= 0.75 ? '#EF4444' : (n.data?.score >= 0.40 ? '#F59E0B' : '#10B981')),
-                maskColor: 'rgba(15, 23, 42, 0.75)'
-              })
-            ]);
+            }, children);
           };
 
           if (!reactFlowRoot) {
             reactFlowRoot = ReactDOM.createRoot(container);
           }
-          reactFlowRoot.render(React.createElement(ReactFlowCanvas));
+          reactFlowRoot.render(
+            React.createElement(RFBoundary, null, React.createElement(ReactFlowCanvas))
+          );
           return;
         } catch (rfErr) {
           console.warn('ReactFlow mount notice, activating native SVG ReactFlow renderer:', rfErr);
