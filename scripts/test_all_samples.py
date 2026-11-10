@@ -24,3 +24,4 @@ for s in samples:
     print(f"{s:<30} | Verdict: {v['label'].upper():<10} | Family: {v['family'].upper():<12} | Conf: {v['confidence']*100:5.1f}% | P(Malware): {d['scores']['p_malware']:.3f}")
 
 print("=" * 70)
+
