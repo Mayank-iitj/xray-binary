@@ -310,10 +310,35 @@
       border: 1px solid var(--border-muted);
       background: var(--surface-muted);
       position: relative;
+      transition: border-color 200ms, background 200ms;
     }
     .calendar-cell.active {
       border-color: var(--accent);
       background: #ffffff;
+    }
+
+    /* Impeccable Responsive Refinements */
+    @media (max-width: 860px) {
+      .calendar-strip {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+      }
+    }
+    @media (max-width: 640px) {
+      .calendar-strip {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+      .timeline-rail, .timeline-marker {
+        display: none !important;
+      }
+      .timeline-plate {
+        width: 100% !important;
+        padding: 1.25rem !important;
+      }
+      .timeline-row {
+        justify-content: stretch !important;
+      }
     }
   </style>
 </head>
@@ -770,12 +795,33 @@
   </footer>
 
   <!-- ==================== SCRIPTS & MOTION ENGINE ==================== -->
+  <script>
+    // Fail-safe watchdog: ensure loading veil dissolves within 1800ms under any network condition
+    setTimeout(function() {
+      var v = document.getElementById('loading-veil');
+      if (v && v.parentNode) {
+        v.style.transition = 'opacity 0.5s ease';
+        v.style.opacity = '0';
+        v.style.pointerEvents = 'none';
+        setTimeout(function() { if (v && v.parentNode) v.remove(); }, 500);
+      }
+    }, 1800);
+  </script>
   <script type="module">
     import * as THREE from 'three';
     import Lenis from 'lenis';
 
     // 1. Lenis Smooth Scrolling & Shared rAF Ticker
-    const lenis = new Lenis({ smoothWheel: true });
+    let lenis;
+    try {
+      lenis = new Lenis({ smoothWheel: true });
+    } catch(e) {
+      console.warn('Lenis fallback:', e);
+      lenis = { raf: () => {}, scrollTo: (target) => {
+        const el = typeof target === 'string' ? document.querySelector(target) : target;
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }};
+    }
     const subscribers = new Set();
     let rafId = null;
 
@@ -924,109 +970,113 @@
     // 5. Full-Bleed WebGL Scene (Hero Backdrop & 4-Sine Contours)
     const canvas = document.getElementById('hero-webgl-canvas');
     if (canvas) {
-      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 50);
-      camera.position.z = 6.5;
+      try {
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 50);
+        camera.position.z = 6.5;
 
-      // 4-Sine Procedural Contour Shader Plane
-      const backdropGeo = new THREE.PlaneGeometry(16, 10);
-      const backdropMat = new THREE.ShaderMaterial({
-        vertexShader: `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          varying vec2 vUv;
-          uniform float uTime;
-          uniform vec2 uPointer;
+        // 4-Sine Procedural Contour Shader Plane
+        const backdropGeo = new THREE.PlaneGeometry(16, 10);
+        const backdropMat = new THREE.ShaderMaterial({
+          vertexShader: `
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            varying vec2 vUv;
+            uniform float uTime;
+            uniform vec2 uPointer;
 
-          float field(vec2 p, float t) {
-            float f = sin(p.x * 1.00 + t * 0.60) * 0.50;
-            f += sin(p.y * 0.85 - t * 0.45) * 0.45;
-            f += sin((p.x + p.y) * 0.65 + t * 0.35) * 0.35;
-            f += sin((p.x - p.y) * 0.95 - t * 0.55) * 0.25;
-            return f * 0.5 + 0.5;
-          }
+            float field(vec2 p, float t) {
+              float f = sin(p.x * 1.00 + t * 0.60) * 0.50;
+              f += sin(p.y * 0.85 - t * 0.45) * 0.45;
+              f += sin((p.x + p.y) * 0.65 + t * 0.35) * 0.35;
+              f += sin((p.x - p.y) * 0.95 - t * 0.55) * 0.25;
+              return f * 0.5 + 0.5;
+            }
 
-          void main() {
-            vec2 p = (vUv - 0.5) * 3.8;
-            float t = uTime * 0.6;
-            vec2 q = p;
-            q.x += sin(p.y * 0.8 + t * 0.7) * 0.37;
-            q.y += cos(p.x * 0.7 - t * 0.6) * 0.37;
+            void main() {
+              vec2 p = (vUv - 0.5) * 3.8;
+              float t = uTime * 0.6;
+              vec2 q = p;
+              q.x += sin(p.y * 0.8 + t * 0.7) * 0.37;
+              q.y += cos(p.x * 0.7 - t * 0.6) * 0.37;
 
-            float scaled = field(q, t) * 2.5;
-            float w = max(fwidth(scaled) * 1.4, 1e-4);
-            float line = 1.0 - smoothstep(0.0, w, abs(fract(scaled) - 0.5));
+              float scaled = field(q, t) * 2.5;
+              float w = max(fwidth(scaled) * 1.4, 1e-4);
+              float line = 1.0 - smoothstep(0.0, w, abs(fract(scaled) - 0.5));
 
-            vec3 bgColor = vec3(0.968, 0.980, 0.984);
-            vec3 lineColor = vec3(0.874, 0.898, 0.914);
-            vec3 accent = vec3(0.008, 0.824, 0.890);
+              vec3 bgColor = vec3(0.968, 0.980, 0.984);
+              vec3 lineColor = vec3(0.874, 0.898, 0.914);
+              vec3 accent = vec3(0.008, 0.824, 0.890);
 
-            // Cursor interactive bloom
-            float dist = length(vUv - uPointer);
-            float cursorGlow = exp(-dist * dist * 12.0);
+              // Cursor interactive bloom
+              float dist = length(vUv - uPointer);
+              float cursorGlow = exp(-dist * dist * 12.0);
 
-            vec3 col = mix(bgColor, lineColor, line * 0.85);
-            col = mix(col, accent, cursorGlow * line * 0.4);
+              vec3 col = mix(bgColor, lineColor, line * 0.85);
+              col = mix(col, accent, cursorGlow * line * 0.4);
 
-            gl_FragColor = vec4(col, 0.85);
-          }
-        `,
-        uniforms: {
-          uTime: { value: 0 },
-          uPointer: { value: new THREE.Vector2(0.5, 0.5) }
-        },
-        transparent: true,
-        depthWrite: false
-      });
+              gl_FragColor = vec4(col, 0.85);
+            }
+          `,
+          uniforms: {
+            uTime: { value: 0 },
+            uPointer: { value: new THREE.Vector2(0.5, 0.5) }
+          },
+          transparent: true,
+          depthWrite: false
+        });
 
-      const backdropMesh = new THREE.Mesh(backdropGeo, backdropMat);
-      scene.add(backdropMesh);
+        const backdropMesh = new THREE.Mesh(backdropGeo, backdropMat);
+        scene.add(backdropMesh);
 
-      // Procedural Cyber Cube / Wireframe Ring Centerpiece
-      const ringGeo = new THREE.TorusGeometry(1.4, 0.05, 16, 100);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x02d2e3, wireframe: true });
-      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-      ringMesh.position.set(0.2, 0.1, 0);
-      scene.add(ringMesh);
+        // Procedural Cyber Cube / Wireframe Ring Centerpiece
+        const ringGeo = new THREE.TorusGeometry(1.4, 0.05, 16, 100);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x02d2e3, wireframe: true });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.position.set(0.2, 0.1, 0);
+        scene.add(ringMesh);
 
-      const coreGeo = new THREE.IcosahedronGeometry(0.8, 1);
-      const coreMat = new THREE.MeshBasicMaterial({ color: 0x090a0b, wireframe: true });
-      const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-      coreMesh.position.set(0.2, 0.1, 0);
-      scene.add(coreMesh);
+        const coreGeo = new THREE.IcosahedronGeometry(0.8, 1);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0x090a0b, wireframe: true });
+        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+        coreMesh.position.set(0.2, 0.1, 0);
+        scene.add(coreMesh);
 
-      window.addEventListener('resize', () => {
+        window.addEventListener('resize', () => {
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+        });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-      });
-      renderer.setSize(window.innerWidth, window.innerHeight);
 
-      let mouse = { x: 0.5, y: 0.5 };
-      window.addEventListener('pointermove', (e) => {
-        mouse.x = e.clientX / window.innerWidth;
-        mouse.y = 1.0 - (e.clientY / window.innerHeight);
-      });
+        let mouse = { x: 0.5, y: 0.5 };
+        window.addEventListener('pointermove', (e) => {
+          mouse.x = e.clientX / window.innerWidth;
+          mouse.y = 1.0 - (e.clientY / window.innerHeight);
+        });
 
-      subscribe((time) => {
-        const t = time * 0.001;
-        backdropMat.uniforms.uTime.value = t;
-        backdropMat.uniforms.uPointer.value.set(mouse.x, mouse.y);
+        subscribe((time) => {
+          const t = time * 0.001;
+          backdropMat.uniforms.uTime.value = t;
+          backdropMat.uniforms.uPointer.value.set(mouse.x, mouse.y);
 
-        ringMesh.rotation.x = t * 0.3 + (mouse.y - 0.5) * 0.8;
-        ringMesh.rotation.y = t * 0.4 + (mouse.x - 0.5) * 0.8;
-        coreMesh.rotation.x = -t * 0.5;
-        coreMesh.rotation.y = t * 0.6;
+          ringMesh.rotation.x = t * 0.3 + (mouse.y - 0.5) * 0.8;
+          ringMesh.rotation.y = t * 0.4 + (mouse.x - 0.5) * 0.8;
+          coreMesh.rotation.x = -t * 0.5;
+          coreMesh.rotation.y = t * 0.6;
 
-        renderer.render(scene, camera);
-      });
+          renderer.render(scene, camera);
+        });
+      } catch (err) {
+        console.warn('Hero WebGL fallback active:', err);
+      }
     }
 
     // 6. Section 2 Chequered Dissolve Seam Canvas

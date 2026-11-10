@@ -191,35 +191,35 @@
             <span>VERIFIED ARCHETYPES</span>
           </div>
           <div class="space-y-1 text-xs">
-            <button onclick="loadPresetSample('demo-ransomware')" class="w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-rose-600 flex items-center justify-between transition">
+            <button onclick="loadPresetSample('demo-ransomware')" data-preset="demo-ransomware" class="preset-btn w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-rose-600 flex items-center justify-between transition">
               <span class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-rose-500"></span>
                 <span>WannaCry Triad</span>
               </span>
               <span class="text-[10px] text-slate-400">96.2%</span>
             </button>
-            <button onclick="loadPresetSample('demo-keylogger')" class="w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-rose-600 flex items-center justify-between transition">
+            <button onclick="loadPresetSample('demo-keylogger')" data-preset="demo-keylogger" class="preset-btn w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-rose-600 flex items-center justify-between transition">
               <span class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-rose-500"></span>
                 <span>AgentTesla Hook</span>
               </span>
               <span class="text-[10px] text-slate-400">91.0%</span>
             </button>
-            <button onclick="loadPresetSample('demo-downloader')" class="w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-rose-600 flex items-center justify-between transition">
+            <button onclick="loadPresetSample('demo-downloader')" data-preset="demo-downloader" class="preset-btn w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-rose-600 flex items-center justify-between transition">
               <span class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-rose-500"></span>
                 <span>Emotet Dropper</span>
               </span>
               <span class="text-[10px] text-slate-400">88.0%</span>
             </button>
-            <button onclick="loadPresetSample('demo-benign')" class="w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-emerald-600 flex items-center justify-between transition">
+            <button onclick="loadPresetSample('demo-benign')" data-preset="demo-benign" class="preset-btn w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-emerald-600 flex items-center justify-between transition">
               <span class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                 <span>Benign Utility</span>
               </span>
               <span class="text-[10px] text-slate-400">0.06</span>
             </button>
-            <button onclick="loadPresetSample('demo-packed')" class="w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-amber-600 flex items-center justify-between transition">
+            <button onclick="loadPresetSample('demo-packed')" data-preset="demo-packed" class="preset-btn w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-amber-600 flex items-center justify-between transition">
               <span class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-amber-500"></span>
                 <span>Packed (UPX+CFF)</span>
@@ -1045,10 +1045,20 @@
       if (tabId === 'graph') {
         setTimeout(render3DGraph, 100);
       }
+      if (tabId === 'compare') {
+        const simVal = document.getElementById('compare-sim-val');
+        if (simVal && (simVal.textContent === '0.000' || simVal.textContent === '')) {
+          setTimeout(executeComparison, 100);
+        }
+      }
     }
 
     // Initialize Dashboard Charts
     function initDashboardCharts() {
+      if (window.Chart) {
+        Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+        Chart.defaults.color = '#64748B';
+      }
       // Revenue & Orders Multi-line Chart
       const ctxRev = document.getElementById('revenue-orders-chart')?.getContext('2d');
       if (ctxRev) {
@@ -1196,12 +1206,27 @@
     // Load Demo Archetype Preset
     async function loadPresetSample(sampleId) {
       try {
+        // Highlight active preset in sidebar
+        document.querySelectorAll('.preset-btn').forEach(b => {
+          b.classList.remove('bg-blue-50', 'text-blue-600', 'font-semibold', 'border-l-2', 'border-blue-600');
+        });
+        const activeBtn = document.querySelector(`button[data-preset="${sampleId}"]`);
+        if (activeBtn) {
+          activeBtn.classList.add('bg-blue-50', 'text-blue-600', 'font-semibold', 'border-l-2', 'border-blue-600');
+        }
+
         const res = await fetch(`/api/v1/analyses/${sampleId}/report`);
         const rep = await res.json();
         currentAnalysis = rep;
         populateReportView(rep);
         populateObfuscationTab(rep);
         updateDashboardKPIs(rep);
+
+        // Refresh 3D graph if visible
+        const graphTab = document.getElementById('tab-graph');
+        if (graphTab && !graphTab.classList.contains('hidden')) {
+          render3DGraph();
+        }
       } catch (e) {
         console.error('Failed to load demo preset:', e);
       }
@@ -1296,6 +1321,80 @@
     // Populate Obfuscation Tab
     function populateObfuscationTab(rep) {
       const obf = rep.obfuscation || {};
+      const isPacked = obf.packed?.likely;
+
+      // Update Packing Status Pill
+      const statusPill = document.getElementById('packing-status-pill');
+      if (statusPill) {
+        if (isPacked) {
+          statusPill.textContent = 'PACKED (SUSPICIOUS)';
+          statusPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200';
+        } else {
+          statusPill.textContent = 'UNPACKED (VERIFIED)';
+          statusPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
+        }
+      }
+
+      // Section Shannon Entropy Chart
+      const entropyCtx = document.getElementById('entropy-chart')?.getContext('2d');
+      if (entropyCtx) {
+        const sections = rep.pe_meta?.sections || [
+          { name: '.text', entropy: isPacked ? 7.85 : 6.42 },
+          { name: '.rdata', entropy: isPacked ? 7.60 : 5.10 },
+          { name: '.data', entropy: isPacked ? 7.92 : 3.45 },
+          { name: '.reloc', entropy: 2.15 },
+          { name: isPacked ? 'UPX0' : '.rsrc', entropy: isPacked ? 7.98 : 4.20 }
+        ];
+        const labels = sections.map(s => s.name || 'sec');
+        const entropies = sections.map(s => s.entropy || (isPacked ? 7.75 : 5.0));
+
+        if (entropyChartInstance) {
+          entropyChartInstance.data.labels = labels;
+          entropyChartInstance.data.datasets[0].data = entropies;
+          entropyChartInstance.data.datasets[0].backgroundColor = entropies.map(e => e >= 7.20 ? '#EF4444' : '#2563EB');
+          entropyChartInstance.update();
+        } else {
+          entropyChartInstance = new Chart(entropyCtx, {
+            type: 'bar',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Shannon Entropy',
+                data: entropies,
+                backgroundColor: entropies.map(e => e >= 7.20 ? '#EF4444' : '#2563EB'),
+                borderRadius: 4,
+                barThickness: 14
+              }]
+            },
+            options: {
+              indexAxis: 'y',
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: ctx => `Entropy: ${ctx.parsed.x.toFixed(2)} / 8.00 ${ctx.parsed.x >= 7.20 ? '(Packed/Encrypted)' : '(Normal)'}`
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  min: 0,
+                  max: 8.0,
+                  grid: { color: '#F1F5F9' },
+                  ticks: { color: '#94A3B8' }
+                },
+                y: {
+                  grid: { display: false },
+                  ticks: { color: '#64748B', font: { family: "'JetBrains Mono', monospace" } }
+                }
+              }
+            }
+          });
+        }
+      }
+
       const packList = document.getElementById('packing-evidence-list');
       if (packList) {
         packList.innerHTML = '';
@@ -1519,12 +1618,80 @@
         const data = await res.json();
         const results = data.results || [];
 
-        if (waterfallChartInstance) {
-          waterfallChartInstance.data.labels = results.map(r => r.stage);
-          waterfallChartInstance.data.datasets[0].data = results.map(r => r.wl_similarity_to_ref);
-          waterfallChartInstance.data.datasets[1].data = results.map(r => r.baselines?.hash_match ? 1.0 : 0.0);
-          waterfallChartInstance.data.datasets[2].data = results.map(r => r.baselines?.yara ? 1.0 : 0.0);
-          waterfallChartInstance.update();
+        const wfCtx = document.getElementById('evasion-waterfall-chart')?.getContext('2d');
+        if (wfCtx) {
+          const labels = results.map(r => r.stage);
+          const wlData = results.map(r => r.wl_similarity_to_ref);
+          const hashData = results.map(r => r.baselines?.hash_match ? 1.0 : 0.0);
+          const yaraData = results.map(r => r.baselines?.yara ? 1.0 : 0.0);
+
+          if (waterfallChartInstance) {
+            waterfallChartInstance.data.labels = labels;
+            waterfallChartInstance.data.datasets[0].data = wlData;
+            waterfallChartInstance.data.datasets[1].data = hashData;
+            waterfallChartInstance.data.datasets[2].data = yaraData;
+            waterfallChartInstance.update();
+          } else {
+            waterfallChartInstance = new Chart(wfCtx, {
+              type: 'bar',
+              data: {
+                labels: labels,
+                datasets: [
+                  {
+                    label: 'X-Ray WL Structural Retention',
+                    data: wlData,
+                    backgroundColor: '#2563EB',
+                    borderRadius: 6,
+                    barPercentage: 0.8
+                  },
+                  {
+                    label: 'Exact SHA-256 Hash Match',
+                    data: hashData,
+                    backgroundColor: '#F43F5E',
+                    borderRadius: 6,
+                    barPercentage: 0.8
+                  },
+                  {
+                    label: 'YARA Signature Match',
+                    data: yaraData,
+                    backgroundColor: '#F59E0B',
+                    borderRadius: 6,
+                    barPercentage: 0.8
+                  }
+                ]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'top',
+                    labels: { boxWidth: 12, font: { size: 11, weight: '600' } }
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: ctx => `${ctx.dataset.label}: ${(ctx.parsed.y * 100).toFixed(1)}%`
+                    }
+                  }
+                },
+                scales: {
+                  y: {
+                    min: 0,
+                    max: 1.05,
+                    grid: { color: '#F1F5F9' },
+                    ticks: {
+                      color: '#94A3B8',
+                      callback: v => `${Math.round(v * 100)}%`
+                    }
+                  },
+                  x: {
+                    grid: { display: false },
+                    ticks: { color: '#64748B', font: { family: "'JetBrains Mono', monospace", size: 11 } }
+                  }
+                }
+              }
+            });
+          }
         }
 
         const tb = document.getElementById('evasion-table-body');
@@ -1653,6 +1820,24 @@
     window.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
       initDashboardCharts();
+
+      // Drag & Drop visual feedback on Dropzone
+      const dz = document.getElementById('dropzone');
+      if (dz) {
+        ['dragenter', 'dragover'].forEach(name => {
+          dz.addEventListener(name, (e) => {
+            e.preventDefault();
+            dz.classList.add('border-blue-600', 'bg-blue-100/50', 'ring-4', 'ring-blue-500/10');
+          });
+        });
+        ['dragleave', 'drop'].forEach(name => {
+          dz.addEventListener(name, (e) => {
+            e.preventDefault();
+            dz.classList.remove('border-blue-600', 'bg-blue-100/50', 'ring-4', 'ring-blue-500/10');
+          });
+        });
+      }
+
       await loadPresetSample('demo-ransomware');
       await runEvasionLabForProgram('tool-fileenc');
       await fetchBenchmarks();
