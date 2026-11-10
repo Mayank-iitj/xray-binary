@@ -179,3 +179,4 @@ If using Google One-Tap or Google Sign-In with your custom domain:
 - **Render Cold Starts**: On Render's Free tier, services spin down after 15 minutes of inactivity. The first request after sleep may take ~30-50 seconds. The frontend includes automatic connection diagnostics and retry logic.
 - **CORS Errors**: The backend CORS middleware in `apps/api/main.py` is configured with `allow_origin_regex=r"https?://.*"`, allowing requests from any Vercel domain or preview URL (`*.vercel.app`) with credentials enabled.
 - **Port Binding**: Render requires dynamic port binding via `$PORT`. Both `apps/api/main.py` and `Dockerfile` automatically detect and bind to `${PORT:-8000}`.
+
