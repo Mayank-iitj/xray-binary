@@ -34,6 +34,9 @@ COPY apps/ /app/apps/
 COPY artifacts/ /app/artifacts/
 COPY docs/ /app/docs/
 COPY tests/ /app/tests/
+COPY samples/ /app/samples/
+COPY landing.html /app/
+COPY README.md /app/
 
 # Expose API and Web Dashboard port
 EXPOSE 8000
