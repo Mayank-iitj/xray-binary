@@ -561,8 +561,16 @@ Top Evidence Nodes:
         return Response(content=summary, media_type="text/markdown")
 
 # ----------------- UI Serving -----------------
-# Serve modern single-page cyber dashboard if requested on root or HTML routes
+@app.get("/landing")
+def serve_landing():
+    landing_path = os.path.join(root_dir, "apps", "web", "landing.html")
+    if os.path.exists(landing_path):
+        return FileResponse(landing_path, media_type="text/html")
+    return {"message": "X-Ray Binary landing page loading..."}
+
 @app.get("/")
+@app.get("/app")
+@app.get("/dashboard")
 @app.get("/a/{analysis_id}")
 @app.get("/compare")
 @app.get("/lab")

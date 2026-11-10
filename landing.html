@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X-RAY BINARY — GRIDO1 Racing Systems / Kimi Antonelli</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/",
+      "lenis": "https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.mjs"
+    }
+  }
+  </script>
+  <style>
+    :root {
+      --raw-color-ice-50: #f7fafb;        /* frame fill */
+      --raw-color-ice-100: #ebeef1;       /* backdrop contour lines */
+      --raw-color-ice-200: #dfe5e9;       /* hairlines & dividers */
+      --raw-color-steel-400: #b6c1c8;     /* muted copy on dark */
+      --raw-color-ink-950: #090a0b;       /* all body copy */
+      --raw-color-ink-900: #0e0f14;       /* "view profile" panel fill */
+      --raw-color-ink-800: #1b1d24;
+      --raw-color-ink-700: #2a2d36;
+      --raw-color-ink-alpha-35: rgb(9 10 11 / 0.35);   /* driver_012, 01:26 */
+      --raw-color-slate-500: #7a7a7a;     /* season map: the halftone */
+      --raw-color-slate-600: #4d4d4d;     /* season map: grid lines, inner ring */
+      --raw-color-slate-900: #1e1e1e;     /* season map: the two outer rings */
+      --raw-color-cyan-400: #02d2e3;      /* accent */
+      --raw-color-cyan-alpha-25: rgb(2 210 227 / 0.25);
+      --raw-color-stone-600: #535450;     /* timeline: plate outline */
+      --raw-color-white-alpha-10: rgb(255 255 255 / 0.1);  /* timeline plate fill; footer contours */
+      --raw-color-white-alpha-20: rgb(255 255 255 / 0.2);  /* timeline: the rail */
+      --raw-color-ink-alpha-08: rgb(9 10 11 / 0.08);       /* paddock: the contour lines */
+      --raw-color-white-alpha-40: rgb(255 255 255 / 0.4);  /* footer: the copyright */
+      --raw-color-white: #ffffff;
+      --raw-color-orange-500: #ff6b00;
+
+      --raw-font-size-96: 6rem;
+      --raw-font-size-70: 4.375rem;
+      --raw-font-size-52: 3.25rem;
+      --raw-font-size-38: 2.375rem;
+      --raw-font-size-20: 1.25rem;
+      --raw-font-size-18: 1.125rem;
+      --raw-font-size-16: 1rem;
+      --raw-font-size-14: 0.875rem;
+      --raw-font-size-12: 0.75rem;
+      --raw-font-size-55: 3.4375rem;
+      --raw-font-size-36: 2.25rem;
+
+      --raw-leading-95: 0.95;
+      --raw-leading-90: 0.9;
+      --raw-leading-72: 0.72;
+      --raw-leading-110: 1.1;
+      --raw-tracking-stat: -0.08em;
+      --raw-tracking-label: -0.04em;
+      --raw-tracking-eyebrow: -0.02em;
+
+      --background: var(--raw-color-ice-50);
+      --foreground: var(--raw-color-ink-950);
+      --foreground-muted: var(--raw-color-ink-alpha-35);
+      --surface-dark: var(--raw-color-ink-900);
+      --surface-dark-raised: var(--raw-color-ink-800);
+      --surface-black: var(--raw-color-ink-950);
+      --surface-muted: var(--raw-color-ice-100);
+      --surface-soft: var(--raw-color-ice-200);
+      --foreground-on-dark: var(--raw-color-white);
+      --foreground-on-dark-muted: var(--raw-color-steel-400);
+      --foreground-on-dark-faint: var(--raw-color-white-alpha-40);
+      --border-muted: var(--raw-color-ice-200);
+      --border-on-dark: var(--raw-color-ink-700);
+      --map-dot: var(--raw-color-slate-500);
+      --map-grid: var(--raw-color-slate-600);
+      --map-grid-ghost: var(--raw-color-slate-900);
+      --map-mark: var(--raw-color-ice-50);
+      --timeline-outline: var(--raw-color-stone-600);
+      --timeline-fill: var(--raw-color-white-alpha-10);
+      --timeline-rail: var(--raw-color-white-alpha-20);
+      --paddock-contour: var(--raw-color-ink-alpha-08);
+      --footer-contour: var(--raw-color-white-alpha-10);
+      --accent: var(--raw-color-cyan-400);
+      --accent-muted: var(--raw-color-cyan-alpha-25);
+      --type-impact: var(--raw-font-size-96);
+      --type-display-lg: var(--raw-font-size-70);
+      --type-display: var(--raw-font-size-52);
+      --type-heading: var(--raw-font-size-38);
+      --type-title: var(--raw-font-size-20);
+      --type-lead: var(--raw-font-size-18);
+      --type-label: var(--raw-font-size-16);
+      --type-body: var(--raw-font-size-14);
+      --type-eyebrow: var(--raw-font-size-12);
+      --type-display-sm: var(--raw-font-size-55);
+      --type-year: var(--raw-font-size-36);
+      --font-sans: "Space Grotesk", system-ui, sans-serif;
+      --font-display: "Oswald", Impact, sans-serif;
+    }
+
+    html { font-size: 16px; box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: inherit; }
+    @media (max-width: 1920px) { html { font-size: 0.833333vw; } }
+    @media (max-width: 1440px) { html { font-size: 1.111111vw; } }
+    @media (max-width: 1279px) { html { font-size: 16px; } }
+
+    @media (min-width: 1441px) and (max-width: 1920px) {
+      [data-hero] {
+        --hero-base: calc(1920 / 1440);
+        --type-impact: calc(6rem * var(--hero-base));
+        --type-display-lg: calc(4.375rem * var(--hero-base));
+        --type-display: calc(3.25rem * var(--hero-base));
+        --type-heading: calc(2.375rem * var(--hero-base));
+        --type-title: calc(1.25rem * var(--hero-base));
+        --type-lead: calc(1.125rem * var(--hero-base));
+        --type-label: calc(1rem * var(--hero-base));
+        --type-body: calc(0.875rem * var(--hero-base));
+        --type-eyebrow: calc(0.75rem * var(--hero-base));
+      }
+      [data-hero] [data-hero-panels] { width: calc(13.625rem * var(--hero-base, 1)); }
+      [data-hero] [data-hero-stats]  { width: calc(10.75rem * var(--hero-base, 1)); }
+      [data-hero] [data-hero-map]    { height: calc(3.125rem * var(--hero-base, 1)); width: calc(4.875rem * var(--hero-base, 1)); }
+      [data-season] {
+        --season-base: calc(1920 / 1440);
+        --type-display-sm: calc(3.4375rem * var(--season-base));
+        --type-lead: calc(1.125rem * var(--season-base));
+        --type-body: calc(0.875rem * var(--season-base));
+        --type-eyebrow: calc(0.75rem * var(--season-base));
+      }
+    }
+
+    body {
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      min-height: 100lvh;
+      margin: 0;
+      overflow-x: hidden;
+      text-transform: uppercase;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    h1, h2, h3, h4, h5, .font-display { font-family: var(--font-display); }
+
+    /* Text Reveal Engine Styling */
+    .reveal-word, .reveal-letter {
+      display: inline-block;
+      will-change: transform, opacity;
+      transform: translateY(0.35em);
+      opacity: 0;
+    }
+    .reveal-row {
+      display: flex;
+      flex-wrap: wrap;
+      column-gap: 0.3em;
+    }
+
+    /* Sticky Stack Container */
+    .sticky-stack-container {
+      position: relative;
+      background: var(--surface-black);
+    }
+    .sticky-layer {
+      position: sticky;
+      top: 0;
+      z-index: 0;
+    }
+    .sticky-inner {
+      transform-origin: center;
+      min-height: 100lvh;
+    }
+    .sticky-shade {
+      position: absolute;
+      inset: 0;
+      background: var(--surface-black);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 15;
+    }
+
+    /* Bracket Corner Panels */
+    .bracket-panel {
+      position: relative;
+      padding: 1rem 1.375rem 1.1875rem;
+      border: none;
+      background: transparent;
+    }
+    .bracket-corner {
+      position: absolute;
+      width: 0.625rem;
+      height: 0.625rem;
+    }
+    .bracket-tr { top: 0; right: 0; }
+    .bracket-tl { top: 0; left: 0; transform: scaleX(-1); }
+    .bracket-bl { bottom: 0; left: 0; transform: scale(-1); }
+    .bracket-br { bottom: 0; right: 0; transform: scaleY(-1); }
+
+    /* CTA Button with SVG Frame */
+    .btn-cta-frame {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 2.5em;
+      width: 11em;
+      font-size: var(--type-title);
+      cursor: pointer;
+      gap: 1.6em;
+      background: transparent;
+      border: none;
+      text-transform: uppercase;
+    }
+    .btn-cta-frame svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .btn-cta-flood {
+      transform-origin: left;
+      transform: scaleX(0);
+      transition: transform 250ms cubic-bezier(0.33, 0, 0, 1);
+      fill: var(--accent);
+    }
+    .btn-cta-frame:hover .btn-cta-flood {
+      transform: scaleX(1);
+    }
+    .btn-cta-label {
+      position: relative;
+      z-index: 2;
+      color: var(--accent);
+      font-size: var(--type-label);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      transition: color 250ms ease;
+    }
+    .btn-cta-frame:hover .btn-cta-label {
+      color: var(--surface-black);
+    }
+    .btn-cta-arrow {
+      position: relative;
+      z-index: 2;
+      width: 0.65em;
+      height: 0.5em;
+      transition: transform 150ms ease;
+    }
+    .btn-cta-frame:hover .btn-cta-arrow {
+      transform: translateX(0.25rem);
+    }
+
+    /* Timeline Section in cqw */
+    [data-timeline] {
+      container-type: inline-size;
+      position: relative;
+      z-index: 20;
+      background: var(--surface-black);
+      color: var(--foreground-on-dark);
+      padding: 6.9444cqw 2.2222cqw;
+    }
+    .timeline-rail {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--timeline-rail);
+      transform: translateX(-50%);
+    }
+    .timeline-marker {
+      position: absolute;
+      left: 50%;
+      width: 1.1111cqw;
+      height: 1.1111cqw;
+      background: var(--accent);
+      transform: translate(-50%, -50%) rotate(0deg);
+      will-change: transform, top;
+    }
+    .timeline-plate {
+      width: 44.4444cqw;
+      padding: 2.2222cqw;
+      background: var(--timeline-fill);
+      border: 1px solid var(--timeline-outline);
+      clip-path: polygon(0 0, calc(100% - 1.3889cqw) 0, 100% 1.3889cqw, 100% 100%, 0 100%);
+      transition: opacity 250ms ease;
+    }
+    .timeline-row:hover .timeline-plate {
+      border-color: var(--accent);
+    }
+
+    /* Paddock / SOC Lab Section */
+    [data-paddock] {
+      container-type: inline-size;
+      position: relative;
+      background: var(--background);
+      color: var(--foreground);
+      padding: 6.9444cqw 2.2222cqw;
+    }
+    .calendar-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1.3889cqw;
+      margin-top: 4.1667cqw;
+      position: relative;
+    }
+    .calendar-cell {
+      padding: 1.6667cqw;
+      border: 1px solid var(--border-muted);
+      background: var(--surface-muted);
+      position: relative;
+    }
+    .calendar-cell.active {
+      border-color: var(--accent);
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== LOADING VEIL ==================== -->
+  <div id="loading-veil" style="position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--background); transition: opacity 700ms cubic-bezier(0.2,0,0,1);" role="status" aria-label="Loading Grido1 X-Ray Binary Systems">
+    <div style="position: relative; width: 7.2rem; height: 8.5rem; display: flex; align-items: center; justify-content: center;">
+      <!-- Helmet Silhouette Mask Layer -->
+      <div style="width: 100%; height: 100%; border: 2px solid var(--accent); border-radius: 48px 48px 30px 30px; position: relative; overflow: hidden; background: rgba(9,10,11,0.06);">
+        <div id="veil-fill" style="position: absolute; inset: 0; background: var(--foreground); transform-origin: top; transform: scaleY(0);"></div>
+      </div>
+      <div style="position: absolute; font-family: var(--font-display); font-size: 1.8rem; font-weight: 700; color: var(--accent); text-align: center;">
+        X-RAY
+      </div>
+    </div>
+    <div id="veil-title" style="margin-top: 1.75rem; font-size: var(--type-lead); font-family: var(--font-sans); font-weight: 700; letter-spacing: 0.18em; color: var(--foreground); transition: opacity 300ms, transform 300ms;">
+      GRIDO1 · X-RAY BINARY
+    </div>
+    <!-- 4px Bottom Meter -->
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: var(--border-muted);">
+      <div id="veil-meter-fill" style="height: 100%; width: 100%; background: var(--accent); transform-origin: left; transform: scaleX(0);"></div>
+    </div>
+  </div>
+
+  <!-- ==================== STICKY STACK WRAPPER ==================== -->
+  <div class="sticky-stack-container">
+
+    <!-- ==================== BLOCK 1: HERO ==================== -->
+    <section data-hero class="sticky-layer" id="layer-hero" style="z-index: 10;">
+      <div class="sticky-inner" id="inner-hero" style="position: relative; min-height: 100lvh; overflow: hidden; background: var(--background);">
+        
+        <!-- Full-Bleed WebGL Scene Canvas -->
+        <canvas id="hero-webgl-canvas" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;"></canvas>
+
+        <!-- Shading Overlay for Receding Stack -->
+        <div class="sticky-shade" id="shade-hero"></div>
+
+        <!-- Content Column -->
+        <div style="position: relative; z-index: 20; min-height: 100lvh; display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem 2rem;">
+          
+          <!-- Masthead Header -->
+          <header style="display: flex; align-items: center; justify-content: space-between; position: relative;">
+            <!-- Brand Logo -->
+            <a href="/" style="display: flex; align-items: center; gap: 0.75rem;" aria-label="Grido1 X-Ray Binary Systems">
+              <div style="width: 1.5rem; height: 1.5rem; background: var(--foreground); display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                  <polyline points="2 17 12 22 22 17"></polyline>
+                  <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+              </div>
+              <span style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; letter-spacing: 0.08em; color: var(--foreground);">
+                GRIDO1 <span style="color: var(--accent);">// X-RAY</span>
+              </span>
+            </a>
+
+            <!-- Centered Nav -->
+            <nav style="position: absolute; left: 50%; transform: translateX(-50%);">
+              <ul style="display: flex; gap: 3.5rem; list-style: none; margin: 0; padding: 0; font-size: var(--type-label); font-weight: 600;">
+                <li><a href="/app" style="color: var(--foreground); transition: color 150ms;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--foreground)'">TRIAGE ENGINE</a></li>
+                <li><a href="#season" style="color: var(--foreground); transition: color 150ms;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--foreground)'">EVASION MATRIX</a></li>
+                <li><a href="#timeline" style="color: var(--foreground); transition: color 150ms;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--foreground)'">METHODOLOGY</a></li>
+                <li><a href="/app#benchmarks" style="color: var(--foreground); transition: color 150ms;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--foreground)'">BENCHMARKS</a></li>
+                <li><a href="/docs" style="color: var(--foreground); transition: color 150ms;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--foreground)'">SPEC TRD</a></li>
+              </ul>
+            </nav>
+
+            <!-- Right CTA Link -->
+            <a href="/app" style="font-size: var(--type-label); font-weight: 700; color: var(--foreground); display: flex; align-items: center; gap: 0.25rem; transition: color 150ms;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--foreground)'">
+              <span>[</span> <span>LAUNCH CONSOLE</span> <span style="color: var(--accent);">→</span> <span>]</span>
+            </a>
+          </header>
+
+          <!-- Middle Row: Left Identity & Right Bracket Panels -->
+          <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 2rem; margin: 2rem 0;">
+            
+            <!-- Left Driver / System Identity -->
+            <div style="max-width: 28rem;">
+              <div style="font-size: var(--type-label); color: var(--foreground-muted); letter-spacing: 0.1em; margin-bottom: 0.75rem;">
+                DEFENSIVE_INTEL_012
+              </div>
+              <h1 style="font-size: var(--type-impact); font-family: var(--font-display); line-height: var(--raw-leading-95); margin: 0 0 1.5rem; color: var(--foreground); letter-spacing: -0.02em;">
+                X-RAY<br>BINARY
+              </h1>
+              <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: var(--type-lead); font-weight: 600;">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                  <span style="display: inline-block; width: 1.125rem; height: 0.75rem; background: #009246; border-radius: 1px; box-shadow: 0 0 0 1px rgba(0,0,0,0.1);"></span>
+                  <span>100% OFFLINE STATIC ENGINE</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                  <span style="color: var(--accent);">✦</span>
+                  <span>WEISFEILER-LEHMAN GRAPH KERNELS</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                  <span style="color: var(--accent);">✦</span>
+                  <span>GIN CALL-GRAPH REASONING</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Rail: Two Bracket-Cornered Panels -->
+            <div data-hero-panels style="width: 14.5rem; display: flex; flex-direction: column; gap: 1.75rem;">
+              
+              <!-- Panel 1: Next Benchmark / Milestone -->
+              <div class="bracket-panel">
+                <svg class="bracket-corner bracket-tr" viewBox="0 0 10.5 10.5"><path d="M0 0.5H10V10.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                <svg class="bracket-corner bracket-tl" viewBox="0 0 10.5 10.5"><path d="M0 0.5H10V10.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                <svg class="bracket-corner bracket-bl" viewBox="0 0 10.5 10.5"><path d="M0 0.5H10V10.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                <svg class="bracket-corner bracket-br" viewBox="0 0 10.5 10.5"><path d="M0 0.5H10V10.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+
+                <div style="font-size: var(--type-eyebrow); font-weight: 700; color: var(--accent); letter-spacing: -0.02em; margin-bottom: 0.75rem;">
+                  NEXT EVALUATION
+                </div>
+                <div style="font-size: var(--type-body); line-height: 1.2;">
+                  <div style="font-weight: 700;">DARPA / AIxCC TRIAGE</div>
+                  <div style="color: var(--foreground-muted); margin-top: 0.25rem;">LAS VEGAS, NV</div>
+                  <div style="color: var(--foreground-muted);"><time datetime="2026-08-15">15 AUG 2026</time></div>
+                </div>
+                <!-- Circuit / Graph Mini Thumbnail -->
+                <div style="margin-top: 1rem; width: 100%; height: 3.5rem; border: 1px dashed var(--border-muted); display: flex; align-items: center; justify-content: center; background: rgba(9,10,11,0.02);">
+                  <svg width="60" height="30" viewBox="0 0 60 30" fill="none" stroke="var(--accent)">
+                    <circle cx="10" cy="15" r="3" fill="var(--accent)"/>
+                    <circle cx="30" cy="8" r="3" fill="var(--accent)"/>
+                    <circle cx="30" cy="22" r="3" fill="var(--accent)"/>
+                    <circle cx="50" cy="15" r="3" fill="var(--accent)"/>
+                    <line x1="10" y1="15" x2="30" y2="8" stroke-width="1.5"/>
+                    <line x1="10" y1="15" x2="30" y2="22" stroke-width="1.5"/>
+                    <line x1="30" y1="8" x2="50" y2="15" stroke-width="1.5"/>
+                    <line x1="30" y1="22" x2="50" y2="15" stroke-width="1.5"/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Panel 2: Verified Benchmark Stats -->
+              <div class="bracket-panel">
+                <svg class="bracket-corner bracket-tr" viewBox="0 0 10.5 10.5"><path d="M0 0.5H10V10.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                <svg class="bracket-corner bracket-tl" viewBox="0 0 10.5 10.5"><path d="M0 0.5H10V10.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                <svg class="bracket-corner bracket-bl" viewBox="0 0 10.5 10.5"><path d="M0 0.5H10V10.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                <svg class="bracket-corner bracket-br" viewBox="0 0 10.5 10.5"><path d="M0 0.5H10V10.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+
+                <div style="font-size: var(--type-eyebrow); font-weight: 700; color: var(--accent); letter-spacing: -0.02em; margin-bottom: 0.75rem;">
+                  VERIFIED STATS
+                </div>
+                <div data-hero-stats style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; text-align: left;">
+                  <div>
+                    <div style="font-size: var(--type-eyebrow); color: var(--foreground-muted);">AUROC</div>
+                    <div style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 700; color: var(--foreground); line-height: 1;">0.98</div>
+                  </div>
+                  <div>
+                    <div style="font-size: var(--type-eyebrow); color: var(--foreground-muted);">TPR@1%</div>
+                    <div style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 700; color: var(--foreground); line-height: 1;">93%</div>
+                  </div>
+                  <div>
+                    <div style="font-size: var(--type-eyebrow); color: var(--foreground-muted);">RETENTION</div>
+                    <div style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 700; color: var(--accent); line-height: 1;">92%</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Actions Row (Foot) -->
+          <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 2rem;">
+            <!-- Trailer CTA -->
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <a href="/app" style="width: 2.25rem; height: 2.25rem; border-radius: 50%; border: 1px solid var(--border-muted); display: flex; align-items: center; justify-content: center; background: #ffffff;">
+                <svg width="10" height="12" viewBox="0 0 10 12" fill="var(--foreground)"><polygon points="0 0 10 6 0 12 0 0"/></svg>
+              </a>
+              <div>
+                <div style="font-size: var(--type-body); font-weight: 700;">WATCH 90S PITCH</div>
+                <div style="font-size: var(--type-body); color: var(--foreground-muted);">01:30 DEMO</div>
+              </div>
+            </div>
+
+            <!-- Profile / Launch CTA -->
+            <a href="/app" class="btn-cta-frame">
+              <svg viewBox="0 0 220 50" preserveAspectRatio="none">
+                <path class="btn-cta-body" d="M220 42L212.932 50H0V0H220V42Z" fill="#0E0F14" />
+                <path class="btn-cta-flood" d="M220 42L212.932 50H0V0H220V42Z" />
+                <path d="M220 42L212.932 50H0V0H220V42Z" fill="none" stroke="var(--accent)" stroke-opacity="0.3" stroke-width="1" />
+                <path d="M205 49.5H213L219.5 42V36 M212 0.5H219.5V7 M8 0.5H0.5V7 M7.5 49.5H0.5V42.5" fill="none" stroke="var(--accent)" stroke-width="1.5" />
+              </svg>
+              <span class="btn-cta-label">LAUNCH CONSOLE</span>
+              <svg class="btn-cta-arrow" viewBox="0 0 14 11" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M0 5.35H13M8 10.35L13 5.35L8 0.35"/>
+              </svg>
+            </a>
+
+            <!-- Socials / Docs -->
+            <div style="display: flex; justify-content: flex-end; gap: 2rem; font-size: var(--type-body); font-weight: 600;">
+              <a href="https://github.com" target="_blank" style="transition: color 150ms;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--foreground)'">GITHUB</a>
+              <a href="/docs" style="transition: color 150ms;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--foreground)'">ALGORITHMS</a>
+              <a href="/app#benchmarks" style="transition: color 150ms;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--foreground)'">RESULTS</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== BLOCK 2: THE EVASION MATRIX SO FAR ==================== -->
+    <section data-season class="sticky-layer" id="layer-season" style="z-index: 15;">
+      <div class="sticky-inner" id="inner-season" style="position: relative; min-height: 100lvh; overflow: hidden; background: var(--surface-black); color: var(--foreground-on-dark);">
+        
+        <!-- Chequered Dissolve Seam Canvas -->
+        <canvas id="chequered-dissolve-canvas" style="position: absolute; inset: 0; width: 100%; height: 34svh; pointer-events: none; z-index: 12;"></canvas>
+
+        <!-- Shading Overlay for Receding Stack -->
+        <div class="sticky-shade" id="shade-season"></div>
+
+        <!-- 1440x800 Stage (Instrument Panel + Halftone + Trace) -->
+        <div id="circuit-stage" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: auto; overflow: hidden;">
+          <!-- Halftone Canvas -->
+          <canvas id="halftone-canvas" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+          <!-- Animated Trace Canvas -->
+          <canvas id="trace-canvas" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+        </div>
+
+        <!-- Copy Column -->
+        <div style="position: relative; z-index: 25; min-height: 100lvh; display: flex; flex-direction: column; justify-content: space-between; padding: 4.8611cqw 2.2222cqw 2rem; pointer-events: none;">
+          
+          <!-- Heading Left Rail -->
+          <div style="pointer-events: auto; max-width: 24rem;">
+            <h2 style="font-size: max(3.8194cqw, 36px); font-family: var(--font-display); line-height: 0.95; color: var(--accent); margin: 0;">
+              THE EVASION<br>MATRIX SO FAR.
+            </h2>
+            <div style="width: 2.5rem; height: 3px; background: var(--accent); margin: 1.5rem 0;"></div>
+            <p style="font-size: 1.1rem; line-height: 1.3; color: var(--foreground-on-dark-muted); text-transform: uppercase;">
+              Every transformation is a stress-test against traditional Antivirus. Here is how structural topology holds where byte hashes collapse.
+            </p>
+          </div>
+
+          <!-- Standings Plate Bottom Right -->
+          <div style="pointer-events: auto; align-self: flex-end; width: 19.2361cqw; min-width: 280px; height: 5.4167cqw; min-height: 80px; background: var(--surface-black); border: 1px solid var(--accent); display: grid; grid-template-columns: 83px 1fr; align-items: center; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);">
+            <!-- Globe Cell -->
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--accent); height: 100%; gap: 6px;">
+              <svg width="37" height="23" viewBox="0 0 37 23" fill="none" stroke="var(--accent)" stroke-width="1">
+                <ellipse cx="18.5" cy="11.5" rx="18" ry="11"/>
+                <line x1="0.5" y1="11.5" x2="36.5" y2="11.5"/>
+                <ellipse id="wireframe-meridian" cx="18.5" cy="11.5" rx="12" ry="11"/>
+              </svg>
+              <div style="font-size: 11px; font-weight: 700;">
+                <span style="color: #ffffff;">X-RAY</span> <span style="color: var(--accent);">/ 2026</span>
+              </div>
+            </div>
+
+            <!-- Stats Cell -->
+            <div style="padding-left: 1rem; display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600;">
+              <div style="display: flex; gap: 6px;">
+                <span style="color: var(--accent);">P1</span> <span style="color: #ffffff;">IN RETENTION (91.7%)</span>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <span style="color: var(--accent);">0%</span> <span style="color: #ffffff;">EXACT HASH SURVIVAL</span>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <span style="color: var(--accent);">+33%</span> <span style="color: #ffffff;">LEAD OVER N-GRAM ML</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== BLOCK 3: CAREER TIMELINE ==================== -->
+    <section data-timeline id="layer-timeline">
+      <!-- Central Rail -->
+      <div class="timeline-rail"></div>
+      <div class="timeline-marker" id="timeline-square-marker"></div>
+
+      <div style="max-width: 1200px; margin: 0 auto; position: relative; z-index: 2;">
+        <div style="text-align: center; margin-bottom: 5rem;">
+          <div style="font-size: var(--type-eyebrow); color: var(--accent); font-weight: 700; letter-spacing: 0.15em;">METHODOLOGICAL EVOLUTION</div>
+          <h2 style="font-size: var(--type-display-sm); font-family: var(--font-display); line-height: 0.95; color: #ffffff; margin-top: 0.5rem;">
+            FROM HASHES TO ISOMORPHISM
+          </h2>
+        </div>
+
+        <!-- 7 Stepped Plates -->
+        <div style="display: flex; flex-direction: column; gap: 4rem;">
+          
+          <!-- Stage 1 -->
+          <div class="timeline-row" style="display: flex; justify-content: flex-start; position: relative;">
+            <div class="timeline-plate">
+              <div style="font-size: 11px; color: var(--accent); font-weight: 700;">PHASE 01 // 1990S</div>
+              <h3 style="font-family: var(--font-display); font-size: 1.8rem; color: #ffffff; margin: 0.25rem 0;">EXACT BYTE HASHING</h3>
+              <p style="font-size: 13px; color: var(--foreground-on-dark-muted); line-height: 1.4; margin: 0;">
+                MD5 / SHA-256 signatures. Collapses completely on single-byte recompilation or section relocation (0% retention).
+              </p>
+            </div>
+          </div>
+
+          <!-- Stage 2 -->
+          <div class="timeline-row" style="display: flex; justify-content: flex-end; position: relative;">
+            <div class="timeline-plate">
+              <div style="font-size: 11px; color: var(--accent); font-weight: 700;">PHASE 02 // 2000S</div>
+              <h3 style="font-family: var(--font-display); font-size: 1.8rem; color: #ffffff; margin: 0.25rem 0;">YARA & REGEX RULES</h3>
+              <p style="font-size: 13px; color: var(--foreground-on-dark-muted); line-height: 1.4; margin: 0;">
+                Pattern matching on strings and raw opcodes. Easily blinded by string XOR encryption and dead-code junk insertion (16.7% retention).
+              </p>
+            </div>
+          </div>
+
+          <!-- Stage 3 -->
+          <div class="timeline-row" style="display: flex; justify-content: flex-start; position: relative;">
+            <div class="timeline-plate">
+              <div style="font-size: 11px; color: var(--accent); font-weight: 700;">PHASE 03 // 2010S</div>
+              <h3 style="font-family: var(--font-display); font-size: 1.8rem; color: #ffffff; margin: 0.25rem 0;">TLSH FUZZY HASHING</h3>
+              <p style="font-size: 13px; color: var(--foreground-on-dark-muted); line-height: 1.4; margin: 0;">
+                Locality-sensitive hashing of byte streams. Degrades rapidly when basic blocks are shuffled or reordered (41.7% retention).
+              </p>
+            </div>
+          </div>
+
+          <!-- Stage 4 -->
+          <div class="timeline-row" style="display: flex; justify-content: flex-end; position: relative;">
+            <div class="timeline-plate">
+              <div style="font-size: 11px; color: var(--accent); font-weight: 700;">PHASE 04 // 2018</div>
+              <h3 style="font-family: var(--font-display); font-size: 1.8rem; color: #ffffff; margin: 0.25rem 0;">N-GRAM FREQUENCY ML</h3>
+              <p style="font-size: 13px; color: var(--foreground-on-dark-muted); line-height: 1.4; margin: 0;">
+                Shallow statistical classifiers over instruction n-grams. Susceptible to feature dilution and control-flow flattening (58.3% retention).
+              </p>
+            </div>
+          </div>
+
+          <!-- Stage 5 -->
+          <div class="timeline-row" style="display: flex; justify-content: flex-start; position: relative;">
+            <div class="timeline-plate">
+              <div style="font-size: 11px; color: var(--accent); font-weight: 700;">PHASE 05 // 2022</div>
+              <h3 style="font-family: var(--font-display); font-size: 1.8rem; color: #ffffff; margin: 0.25rem 0;">CALL-GRAPH GNN (GIN)</h3>
+              <p style="font-size: 13px; color: var(--foreground-on-dark-muted); line-height: 1.4; margin: 0;">
+                Graph Isomorphism Networks projecting execution topology into 64-d L2 normalized latent space. High generalizability (81.0% retention).
+              </p>
+            </div>
+          </div>
+
+          <!-- Stage 6 -->
+          <div class="timeline-row" style="display: flex; justify-content: flex-end; position: relative;">
+            <div class="timeline-plate">
+              <div style="font-size: 11px; color: var(--accent); font-weight: 700;">PHASE 06 // 2024</div>
+              <h3 style="font-family: var(--font-display); font-size: 1.8rem; color: #ffffff; margin: 0.25rem 0;">WEISFEILER-LEHMAN KERNELS</h3>
+              <p style="font-size: 13px; color: var(--foreground-on-dark-muted); line-height: 1.4; margin: 0;">
+                Sublinear-TF IDF hashed multiset vectors with 100% invariance to function renaming and instruction relocation (88.4% retention).
+              </p>
+            </div>
+          </div>
+
+          <!-- Stage 7 -->
+          <div class="timeline-row" style="display: flex; justify-content: flex-start; position: relative;">
+            <div class="timeline-plate" style="border-color: var(--accent); background: rgba(2, 210, 227, 0.08);">
+              <div style="font-size: 11px; color: var(--accent); font-weight: 700;">PHASE 07 // 2026 SHIPPED</div>
+              <h3 style="font-family: var(--font-display); font-size: 1.8rem; color: #ffffff; margin: 0.25rem 0;">X-RAY BINARY FUSION</h3>
+              <p style="font-size: 13px; color: #ffffff; line-height: 1.4; margin: 0;">
+                Calibrated multi-modal fusion combining WL similarity, GNN deep attribution, and honest packing stubs (91.7% retention, 0.984 AUROC).
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </div><!-- End of Sticky Stack Container -->
+
+  <!-- ==================== BLOCK 4: FROM THE SOC LAB ==================== -->
+  <section data-paddock id="layer-paddock">
+    <div style="max-width: 1200px; margin: 0 auto; position: relative; z-index: 2;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem;">
+        <div>
+          <div style="font-size: var(--type-eyebrow); color: var(--accent); font-weight: 700;">OPERATIONAL DISPATCH</div>
+          <h2 style="font-size: var(--type-impact); font-family: var(--font-display); line-height: 0.95; color: var(--foreground); margin: 0.5rem 0 0;">
+            FROM THE SOC LAB.
+          </h2>
+        </div>
+        <a href="/app" class="btn-cta-frame" style="font-size: 1rem;">
+          <svg viewBox="0 0 220 50" preserveAspectRatio="none">
+            <path d="M220 42L212.932 50H0V0H220V42Z" fill="#0E0F14" />
+            <path class="btn-cta-flood" d="M220 42L212.932 50H0V0H220V42Z" />
+            <path d="M205 49.5H213L219.5 42V36 M212 0.5H219.5V7 M8 0.5H0.5V7 M7.5 49.5H0.5V42.5" fill="none" stroke="var(--accent)" stroke-width="1.5" />
+          </svg>
+          <span class="btn-cta-label">LIVE TRIAGE →</span>
+        </a>
+      </div>
+
+      <!-- 5-Round Calendar Strip (5 Triage Archetypes) -->
+      <div class="calendar-strip">
+        <div class="calendar-cell active">
+          <div style="font-size: 11px; color: var(--accent); font-weight: 700;">ROUND 01</div>
+          <div style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin: 0.25rem 0;">WANNACRY</div>
+          <div style="font-size: 11px; color: var(--foreground-muted);">RANSOMWARE TRIAD</div>
+          <div style="margin-top: 1rem; font-size: 11px; font-weight: 700; color: #e11d48;">96.2% MALICIOUS</div>
+        </div>
+
+        <div class="calendar-cell">
+          <div style="font-size: 11px; color: var(--foreground-muted); font-weight: 700;">ROUND 02</div>
+          <div style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin: 0.25rem 0;">AGENTTESLA</div>
+          <div style="font-size: 11px; color: var(--foreground-muted);">KEYLOGGER HOOK</div>
+          <div style="margin-top: 1rem; font-size: 11px; font-weight: 700; color: #e11d48;">91.0% MALICIOUS</div>
+        </div>
+
+        <div class="calendar-cell">
+          <div style="font-size: 11px; color: var(--foreground-muted); font-weight: 700;">ROUND 03</div>
+          <div style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin: 0.25rem 0;">EMOTET</div>
+          <div style="font-size: 11px; color: var(--foreground-muted);">DROPPER PIPELINE</div>
+          <div style="margin-top: 1rem; font-size: 11px; font-weight: 700; color: #e11d48;">88.0% MALICIOUS</div>
+        </div>
+
+        <div class="calendar-cell">
+          <div style="font-size: 11px; color: var(--foreground-muted); font-weight: 700;">ROUND 04</div>
+          <div style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin: 0.25rem 0;">COREUTILS</div>
+          <div style="font-size: 11px; color: var(--foreground-muted);">BENIGN UTILITY</div>
+          <div style="margin-top: 1rem; font-size: 11px; font-weight: 700; color: #10b981;">0.06 P(MALWARE)</div>
+        </div>
+
+        <div class="calendar-cell">
+          <div style="font-size: 11px; color: var(--foreground-muted); font-weight: 700;">ROUND 05</div>
+          <div style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin: 0.25rem 0;">UPX + CFF</div>
+          <div style="font-size: 11px; color: var(--foreground-muted);">PACKED VARIANT</div>
+          <div style="margin-top: 1rem; font-size: 11px; font-weight: 700; color: #f59e0b;">INCONCLUSIVE</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== BLOCK 5: KEEP PUSHING FORWARD (SIGN-OFF) ==================== -->
+  <footer style="position: relative; background: var(--accent); padding: 16px; overflow: hidden;">
+    <div style="background: var(--surface-black); border-radius: 4px; padding: 5rem 3rem 3rem; color: #ffffff; position: relative; overflow: hidden;">
+      
+      <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; justify-content: space-between; min-height: 400px;">
+        <div>
+          <div style="font-size: var(--type-eyebrow); color: var(--accent); font-weight: 700; letter-spacing: 0.15em;">GRIDO1 RACING & DEFENSIVE INTELLIGENCE</div>
+          <h2 style="font-size: var(--type-impact); font-family: var(--font-display); line-height: 0.95; color: #ffffff; margin: 1rem 0 2rem;">
+            KEEP PUSHING<br>FORWARD.
+          </h2>
+          <a href="/app" style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 700; color: var(--accent); text-decoration: underline;">
+            ENTER OPERATIONAL DASHBOARD →
+          </a>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; margin-top: 4rem; font-size: 12px; color: var(--raw-color-white-alpha-40);">
+          <div>© 2026 GRIDO1 RACING SYSTEMS // X-RAY BINARY DEFENSE. ALL RIGHTS RESERVED.</div>
+          <div style="display: flex; gap: 2rem;">
+            <a href="/app" style="color: #ffffff;">CONSOLE</a>
+            <a href="/app#benchmarks" style="color: #ffffff;">BENCHMARKS</a>
+            <a href="/docs" style="color: #ffffff;">DOCUMENTATION</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- ==================== SCRIPTS & MOTION ENGINE ==================== -->
+  <script type="module">
+    import * as THREE from 'three';
+    import Lenis from 'lenis';
+
+    // 1. Lenis Smooth Scrolling & Shared rAF Ticker
+    const lenis = new Lenis({ smoothWheel: true });
+    const subscribers = new Set();
+    let rafId = null;
+
+    function subscribe(fn, getFramerate = () => 0) {
+      const sub = { fn, getFramerate, last: 0 };
+      subscribers.add(sub);
+      if (!rafId) rafId = requestAnimationFrame(tick);
+      return () => {
+        subscribers.delete(sub);
+        if (subscribers.size === 0 && rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      };
+    }
+
+    function tick(time) {
+      rafId = requestAnimationFrame(tick);
+      for (const sub of [...subscribers]) {
+        const budget = sub.getFramerate();
+        if (time - sub.last >= budget) {
+          sub.fn(time);
+          sub.last = time;
+        }
+      }
+    }
+
+    subscribe((time) => lenis.raf(time), () => 0);
+
+    // 2. React-Spring Solver Emulation
+    function createSpring(config, onUpdate, initialValue = 0) {
+      let value = initialValue;
+      let velocity = 0;
+      let target = initialValue;
+      const { tension = 170, friction = 26, mass = 1 } = config;
+
+      return {
+        setTarget(t) { target = t; },
+        step(dtMs) {
+          if (Math.abs(velocity) < 0.001 && Math.abs(target - value) < 0.001) {
+            value = target;
+            velocity = 0;
+            return false;
+          }
+          const substeps = Math.min(Math.ceil(dtMs), 64);
+          const dt = dtMs / substeps / 1000;
+          for (let i = 0; i < substeps; i++) {
+            const springForce = -tension * (value - target);
+            const dampingForce = -friction * velocity;
+            const acceleration = (springForce + dampingForce) / mass;
+            velocity += acceleration * dt;
+            value += velocity * dt;
+          }
+          onUpdate(value);
+          return true;
+        },
+        get value() { return value; }
+      };
+    }
+
+    // 3. Loading Veil Animation
+    const veilEl = document.getElementById('loading-veil');
+    const veilFill = document.getElementById('veil-fill');
+    const veilMeter = document.getElementById('veil-meter-fill');
+    const veilTitle = document.getElementById('veil-title');
+
+    let veilProgress = 0;
+    const veilSpring = createSpring({ tension: 170, friction: 26 }, (v) => {
+      veilProgress = v;
+      if (veilFill) veilFill.style.transform = `scaleY(${v})`;
+      if (veilMeter) veilMeter.style.transform = `scaleX(${v})`;
+    }, 0);
+
+    // Creep to 0.7 then 1.0
+    veilSpring.setTarget(0.7);
+    setTimeout(() => {
+      veilSpring.setTarget(1.0);
+      setTimeout(() => {
+        if (veilTitle) {
+          veilTitle.style.opacity = '0';
+          veilTitle.style.transform = 'translateY(-0.75rem)';
+        }
+        setTimeout(() => {
+          if (veilEl) {
+            veilEl.style.opacity = '0';
+            veilEl.style.pointerEvents = 'none';
+            setTimeout(() => veilEl.remove(), 750);
+          }
+        }, 300);
+      }, 500);
+    }, 400);
+
+    subscribe((time) => {
+      veilSpring.step(16);
+    });
+
+    // 4. Sticky Stack Recede Logic
+    const RECEDE_SCALE = 0.9;
+    const RECEDE_SHADE = 0.55;
+    const pinned = [
+      {
+        inner: document.getElementById('inner-hero'),
+        shade: document.getElementById('shade-hero'),
+        next: document.getElementById('layer-season'),
+      },
+      {
+        inner: document.getElementById('inner-season'),
+        shade: document.getElementById('shade-season'),
+        next: document.getElementById('layer-timeline'),
+      }
+    ];
+
+    function applyStickyRecede() {
+      const view = window.innerHeight || 1;
+      const isMobile = window.innerWidth < 640;
+      const shrink = isMobile ? 0 : 1 - RECEDE_SCALE;
+
+      for (const { inner, shade, next } of pinned) {
+        if (!inner || !next) continue;
+        const top = next.getBoundingClientRect().top;
+        const p = Math.min(1, Math.max(0, 1 - top / view));
+        if (p > 0 && shrink > 0) {
+          inner.style.transform = `scale(${1 - shrink * p})`;
+          inner.style.willChange = 'transform';
+        } else {
+          inner.style.transform = '';
+          inner.style.willChange = '';
+        }
+        if (shade) shade.style.opacity = `${RECEDE_SHADE * p}`;
+      }
+
+      // Rotate Square Marker on Timeline
+      const timelineSec = document.getElementById('layer-timeline');
+      const marker = document.getElementById('timeline-square-marker');
+      if (timelineSec && marker) {
+        const rect = timelineSec.getBoundingClientRect();
+        const progress = Math.min(1, Math.max(0, -rect.top / (rect.height - view)));
+        marker.style.top = `${progress * 100}%`;
+        marker.style.transform = `translate(-50%, -50%) rotate(${progress * 5 * 360}deg)`;
+      }
+    }
+
+    window.addEventListener('scroll', applyStickyRecede, { passive: true });
+    subscribe(() => applyStickyRecede());
+
+    // 5. Full-Bleed WebGL Scene (Hero Backdrop & 4-Sine Contours)
+    const canvas = document.getElementById('hero-webgl-canvas');
+    if (canvas) {
+      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 50);
+      camera.position.z = 6.5;
+
+      // 4-Sine Procedural Contour Shader Plane
+      const backdropGeo = new THREE.PlaneGeometry(16, 10);
+      const backdropMat = new THREE.ShaderMaterial({
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          varying vec2 vUv;
+          uniform float uTime;
+          uniform vec2 uPointer;
+
+          float field(vec2 p, float t) {
+            float f = sin(p.x * 1.00 + t * 0.60) * 0.50;
+            f += sin(p.y * 0.85 - t * 0.45) * 0.45;
+            f += sin((p.x + p.y) * 0.65 + t * 0.35) * 0.35;
+            f += sin((p.x - p.y) * 0.95 - t * 0.55) * 0.25;
+            return f * 0.5 + 0.5;
+          }
+
+          void main() {
+            vec2 p = (vUv - 0.5) * 3.8;
+            float t = uTime * 0.6;
+            vec2 q = p;
+            q.x += sin(p.y * 0.8 + t * 0.7) * 0.37;
+            q.y += cos(p.x * 0.7 - t * 0.6) * 0.37;
+
+            float scaled = field(q, t) * 2.5;
+            float w = max(fwidth(scaled) * 1.4, 1e-4);
+            float line = 1.0 - smoothstep(0.0, w, abs(fract(scaled) - 0.5));
+
+            vec3 bgColor = vec3(0.968, 0.980, 0.984);
+            vec3 lineColor = vec3(0.874, 0.898, 0.914);
+            vec3 accent = vec3(0.008, 0.824, 0.890);
+
+            // Cursor interactive bloom
+            float dist = length(vUv - uPointer);
+            float cursorGlow = exp(-dist * dist * 12.0);
+
+            vec3 col = mix(bgColor, lineColor, line * 0.85);
+            col = mix(col, accent, cursorGlow * line * 0.4);
+
+            gl_FragColor = vec4(col, 0.85);
+          }
+        `,
+        uniforms: {
+          uTime: { value: 0 },
+          uPointer: { value: new THREE.Vector2(0.5, 0.5) }
+        },
+        transparent: true,
+        depthWrite: false
+      });
+
+      const backdropMesh = new THREE.Mesh(backdropGeo, backdropMat);
+      scene.add(backdropMesh);
+
+      // Procedural Cyber Cube / Wireframe Ring Centerpiece
+      const ringGeo = new THREE.TorusGeometry(1.4, 0.05, 16, 100);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x02d2e3, wireframe: true });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.position.set(0.2, 0.1, 0);
+      scene.add(ringMesh);
+
+      const coreGeo = new THREE.IcosahedronGeometry(0.8, 1);
+      const coreMat = new THREE.MeshBasicMaterial({ color: 0x090a0b, wireframe: true });
+      const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+      coreMesh.position.set(0.2, 0.1, 0);
+      scene.add(coreMesh);
+
+      window.addEventListener('resize', () => {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      let mouse = { x: 0.5, y: 0.5 };
+      window.addEventListener('pointermove', (e) => {
+        mouse.x = e.clientX / window.innerWidth;
+        mouse.y = 1.0 - (e.clientY / window.innerHeight);
+      });
+
+      subscribe((time) => {
+        const t = time * 0.001;
+        backdropMat.uniforms.uTime.value = t;
+        backdropMat.uniforms.uPointer.value.set(mouse.x, mouse.y);
+
+        ringMesh.rotation.x = t * 0.3 + (mouse.y - 0.5) * 0.8;
+        ringMesh.rotation.y = t * 0.4 + (mouse.x - 0.5) * 0.8;
+        coreMesh.rotation.x = -t * 0.5;
+        coreMesh.rotation.y = t * 0.6;
+
+        renderer.render(scene, camera);
+      });
+    }
+
+    // 6. Section 2 Chequered Dissolve Seam Canvas
+    const seamCanvas = document.getElementById('chequered-dissolve-canvas');
+    if (seamCanvas) {
+      const ctx = seamCanvas.getContext('2d');
+      function drawSeam() {
+        const w = seamCanvas.width = seamCanvas.offsetWidth || window.innerWidth;
+        const h = seamCanvas.height = seamCanvas.offsetHeight || 300;
+        const cell = 24;
+        const cols = Math.ceil(w / cell);
+        const rows = Math.ceil(h / cell);
+
+        ctx.clearRect(0, 0, w, h);
+        for (let y = 0; y < rows; y++) {
+          const depth = y / rows;
+          const solid = depth <= 0.16;
+          const fade = Math.max(0, 1 - (depth - 0.16) / 0.84);
+          for (let x = 0; x < cols; x++) {
+            if (!solid && (x + y) % 2 !== 0) continue;
+            const hash = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+            const n = hash - Math.floor(hash);
+            if (!solid && n > fade) continue;
+
+            ctx.fillStyle = (!solid && n < 0.06) ? '#02d2e3' : '#090a0b';
+            ctx.fillRect(x * cell, y * cell, cell, cell);
+          }
+        }
+      }
+      window.addEventListener('resize', drawSeam);
+      drawSeam();
+    }
+
+    // 7. Section 2 Animated Circuit Lap & Halftone
+    const traceCanvas = document.getElementById('trace-canvas');
+    const halfCanvas = document.getElementById('halftone-canvas');
+    if (traceCanvas && halfCanvas) {
+      const tCtx = traceCanvas.getContext('2d');
+      const hCtx = halfCanvas.getContext('2d');
+
+      function resizeCanvases() {
+        traceCanvas.width = traceCanvas.offsetWidth || 1440;
+        traceCanvas.height = traceCanvas.offsetHeight || 800;
+        halfCanvas.width = halfCanvas.offsetWidth || 1440;
+        halfCanvas.height = halfCanvas.offsetHeight || 800;
+        drawHalftone();
+      }
+
+      // Draw Halftone Landmass Dots
+      function drawHalftone() {
+        const w = halfCanvas.width;
+        const h = halfCanvas.height;
+        hCtx.clearRect(0, 0, w, h);
+        hCtx.fillStyle = '#7a7a7a';
+
+        const step = 16;
+        for (let y = 40; y < h - 40; y += step) {
+          for (let x = 40; x < w - 40; x += step) {
+            // Shape landmass
+            const d1 = Math.hypot(x - w*0.4, y - h*0.5);
+            const d2 = Math.hypot(x - w*0.65, y - h*0.45);
+            if (d1 < 260 || d2 < 220) {
+              hCtx.beginPath();
+              hCtx.arc(x, y, 1.75, 0, Math.PI * 2);
+              hCtx.fill();
+            }
+          }
+        }
+      }
+
+      window.addEventListener('resize', resizeCanvases);
+      resizeCanvases();
+
+      // Clockwise animated 6-second circuit path
+      let lapStart = null;
+      function animateLap(time) {
+        if (!lapStart) lapStart = time;
+        const progress = ((time - lapStart) % 6000) / 6000;
+
+        const w = traceCanvas.width;
+        const h = traceCanvas.height;
+        tCtx.clearRect(0, 0, w, h);
+
+        // Circuit Loop Points
+        const cx = w * 0.52;
+        const cy = h * 0.5;
+        const rx = w * 0.32;
+        const ry = h * 0.3;
+
+        // Draw Base Track Ribbon
+        tCtx.beginPath();
+        tCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        tCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        tCtx.lineWidth = 6;
+        tCtx.stroke();
+
+        // Draw Active Lap Head with Cyan Additive Glow
+        const angle = progress * Math.PI * 2;
+        const headLength = 0.35; // rad
+        tCtx.beginPath();
+        tCtx.ellipse(cx, cy, rx, ry, 0, angle - headLength, angle);
+        tCtx.strokeStyle = '#02d2e3';
+        tCtx.lineWidth = 7;
+        tCtx.shadowColor = '#02d2e3';
+        tCtx.shadowBlur = 15;
+        tCtx.stroke();
+        tCtx.shadowBlur = 0;
+
+        // Hot White Spark at Head
+        const hx = cx + rx * Math.cos(angle);
+        const hy = cy + ry * Math.sin(angle);
+        tCtx.beginPath();
+        tCtx.arc(hx, hy, 4, 0, Math.PI * 2);
+        tCtx.fillStyle = '#ffffff';
+        tCtx.shadowColor = '#02d2e3';
+        tCtx.shadowBlur = 20;
+        tCtx.fill();
+        tCtx.shadowBlur = 0;
+      }
+
+      subscribe((time) => animateLap(time));
+    }
+
+    // 8. Wireframe Meridian 10s Loop
+    const meridian = document.getElementById('wireframe-meridian');
+    subscribe((time) => {
+      if (meridian) {
+        const turn = (time / 10000) * Math.PI * 2;
+        const rx = Math.max(0.5, Math.abs(Math.cos(turn)) * 18);
+        meridian.setAttribute('rx', rx.toFixed(2));
+      }
+    });
+  </script>
+</body>
+</html>

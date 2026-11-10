@@ -19,7 +19,7 @@ root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from xray_core.extractor import extract_features_from_bytes
+from xray_core.extractor import extract_binary_graph
 from xray_core.wl_kernel import wl_features, cosine
 from xray_core.obfuscation import analyze_pe_obfuscation, analyze_cfg_obfuscation
 from xray_eval.corpus import get_reference_corpus
@@ -53,7 +53,7 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
         return 1
 
     sha256_hash = hashlib.sha256(file_bytes).hexdigest()
-    extracted = extract_features_from_bytes(file_bytes, unpack=unpack)
+    extracted = extract_binary_graph(file_bytes, unpack=unpack)
     corpus = get_reference_corpus()
 
     # WL Feature Extraction
@@ -141,8 +141,8 @@ def compare_binaries(file_a: str, file_b: str) -> int:
         bytes_a = fa.read()
         bytes_b = fb.read()
 
-    feat_a = extract_features_from_bytes(bytes_a)
-    feat_b = extract_features_from_bytes(bytes_b)
+    feat_a = extract_binary_graph(bytes_a)
+    feat_b = extract_binary_graph(bytes_b)
 
     vec_a = wl_features(feat_a.call_graph, depth=3)
     vec_b = wl_features(feat_b.call_graph, depth=3)
@@ -235,3 +235,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
