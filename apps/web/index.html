@@ -94,7 +94,7 @@
     <div>
       <!-- Brand Header -->
       <div class="h-16 px-6 flex items-center justify-between border-b border-[#E8ECF2]/60">
-        <div class="flex items-center gap-2.5 cursor-pointer" onclick="switchTab('dashboard')">
+        <a href="/" class="flex items-center gap-2.5 cursor-pointer no-underline" title="Return to Landing Page">
           <!-- Logo Icon -->
           <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -105,7 +105,7 @@
           </div>
           <span class="text-xl font-bold tracking-tight text-slate-900 font-sans">eyris</span>
           <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 ml-1">X-Ray</span>
-        </div>
+        </a>
         <button onclick="toggleSidebarCollapse()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition" title="Toggle Sidebar">
           <i data-lucide="panel-left-close" class="w-4 h-4"></i>
         </button>
@@ -265,7 +265,13 @@
       </div>
 
       <!-- Right: Controls, Notifications & Profile -->
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3">
+        <!-- Return to Landing Page Link -->
+        <a href="/" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:text-blue-600 hover:border-blue-300 font-semibold transition" title="Return to Landing Page">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          <span>Landing Page</span>
+        </a>
+
         <!-- Live System Pill -->
         <div class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-[11px] font-semibold text-emerald-600">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>

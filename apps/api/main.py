@@ -561,6 +561,7 @@ Top Evidence Nodes:
         return Response(content=summary, media_type="text/markdown")
 
 # ----------------- UI Serving -----------------
+@app.get("/")
 @app.get("/landing")
 def serve_landing():
     landing_path = os.path.join(root_dir, "apps", "web", "landing.html")
@@ -568,7 +569,6 @@ def serve_landing():
         return FileResponse(landing_path, media_type="text/html")
     return {"message": "X-Ray Binary landing page loading..."}
 
-@app.get("/")
 @app.get("/app")
 @app.get("/dashboard")
 @app.get("/a/{analysis_id}")

@@ -21,10 +21,10 @@ if root_dir not in sys.path:
 
 from xray_core.extractor import extract_binary_graph
 from xray_core.wl_kernel import wl_features, cosine
-from xray_core.obfuscation import analyze_pe_obfuscation, analyze_cfg_obfuscation
+from xray_core.obfuscation import cff_score, xor_decode_loops, packing_indicators
 from xray_eval.corpus import get_reference_corpus
 from xray_models.fusion import fuse_scores
-from xray_models.gnn import CallGraphGNN, extract_graph_features
+from xray_models.gnn import CallGraphGNN, extract_node_feature_matrix, build_edge_index, CLASSES
 from xray_eval.benchmarks import run_benchmarks
 
 
@@ -62,21 +62,57 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
     benign_sim = wl_sims.get("benign", 0.0)
 
     # GNN Inference
-    x, edge_index = extract_graph_features(extracted.call_graph)
+    nodes = list(extracted.call_graph.nodes())
+    node_metadata = extracted.call_graph.nodes
+    x, node_to_idx = extract_node_feature_matrix(nodes, node_metadata)
+    edge_index = build_edge_index(extracted.call_graph.edges(), node_to_idx)
     gnn = CallGraphGNN()
-    gnn_out = gnn.forward(x, edge_index)
+    logits, _ = gnn.forward(x, edge_index)
+    import numpy as np
+    exp_logits = np.exp(logits - np.max(logits))
+    probs = (exp_logits / np.sum(exp_logits)).tolist()
+    gnn_probs = {CLASSES[i]: round(probs[i], 3) for i in range(len(CLASSES))}
 
     # Obfuscation Analysis
-    pe_obf = analyze_pe_obfuscation(extracted.pe_meta)
-    cfg_obf = analyze_cfg_obfuscation(extracted.cfgs)
+    sections = extracted.pe_meta.get("sections", [])
+    imports = extracted.pe_meta.get("imports", [])
+    packing_signals = packing_indicators(sections, imports)
+
+    cff_candidates = []
+    xor_loops_found = []
+    for fn_id, cfg in extracted.cfgs.items():
+        cff_res = cff_score(cfg)
+        if cff_res.get("is_cff"):
+            cff_candidates.append({
+                "function": fn_id,
+                "score": round(cff_res.get("cff_score", 0.0), 3),
+                "dispatcher": cff_res.get("dispatcher_block", fn_id)
+            })
+        loops = xor_decode_loops(cfg)
+        if loops:
+            xor_loops_found.append({
+                "function": fn_id,
+                "loop_blocks": loops[0].get("loop_blocks", []),
+                "xor_ops": loops[0].get("xor_ops", 0)
+            })
+
+    obfuscation_data = {
+        "packed": {
+            "likely": packing_signals.get("is_packed", False),
+            "structure_reliable": not packing_signals.get("is_packed", False),
+            "evidence": packing_signals.get("reasons", [])
+        },
+        "cff": cff_candidates,
+        "xor_decode": xor_loops_found,
+        "entropy": packing_signals.get("max_entropy", 0.0),
+        "junk_ratio": 0.05
+    }
 
     # Calibrated Fusion
     fused = fuse_scores(
-        wl_sims=wl_sims,
-        gnn_probs=gnn_out["probs"],
-        benign_wl_sim=benign_sim,
-        pe_obf=pe_obf,
-        cfg_obf=cfg_obf,
+        wl_scores=wl_sims,
+        gnn_probs=gnn_probs,
+        obfuscation=obfuscation_data,
     )
 
     verdict = fused["verdict"]
@@ -89,15 +125,10 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
             "verdict": verdict,
             "scores": {
                 "wl": wl_sims,
-                "gnn": gnn_out["probs"],
+                "gnn": gnn_probs,
                 "p_malware": fused["p_malware"]
             },
-            "obfuscation": {
-                "packed": pe_obf.get("packed_heuristic", False),
-                "entropy": pe_obf.get("entropy"),
-                "cff_count": len(cfg_obf.get("cff_candidates", [])),
-                "xor_loops": len(cfg_obf.get("xor_loops", []))
-            }
+            "obfuscation": obfuscation_data
         }
         print(json.dumps(report, indent=2))
         return 0
@@ -125,9 +156,9 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
     print(f"  • Calibrated P(Malware)  : {fused['p_malware']:.3f} (Agreement: {fused.get('agreement', 'N/A')})")
     print("-" * 65)
     print(" OBFUSCATION & PACKING TELEMETRY:")
-    print(f"  • Section Entropy        : {pe_obf.get('entropy', 0.0):.2f} / 8.00 (Packed: {pe_obf.get('packed_heuristic', False)})")
-    print(f"  • CFF Dispatchers        : {len(cfg_obf.get('cff_candidates', []))} detected")
-    print(f"  • XOR Decryption Loops   : {len(cfg_obf.get('xor_loops', []))} detected in cyclic SCCs")
+    print(f"  • Section Entropy        : {obfuscation_data.get('entropy', 0.0):.2f} / 8.00 (Packed: {obfuscation_data['packed']['likely']})")
+    print(f"  • CFF Dispatchers        : {len(cff_candidates)} detected")
+    print(f"  • XOR Decryption Loops   : {len(xor_loops_found)} detected in cyclic SCCs")
     print("=" * 65)
     return 0
 
