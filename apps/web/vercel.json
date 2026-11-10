@@ -24,6 +24,10 @@
       "destination": "/assets/login-photo.jpg"
     },
     {
+      "source": "/favicon.ico",
+      "destination": "/assets/favicon.ico"
+    },
+    {
       "source": "/api/:match*",
       "destination": "https://xray-binary-api.onrender.com/api/:match*"
     }
