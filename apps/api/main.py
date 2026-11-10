@@ -498,6 +498,7 @@ def get_evasion_run(run_id: str):
         raise HTTPException(status_code=404, detail="Evasion run not found.")
     return EVASION_RUNS[run_id]
 
+@app.get("/api/v1/benchmarks")
 @app.get("/api/v1/benchmarks/latest")
 def get_latest_benchmarks():
     return run_benchmarks()
