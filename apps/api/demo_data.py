@@ -12,6 +12,7 @@ import os
 import sys
 import uuid
 import struct
+import random
 from typing import Dict, Any
 
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -41,8 +42,10 @@ def create_synthetic_pe_bytes(archetype: str) -> bytes:
     opt_head += struct.pack("<IIHHHHIIIIHHIIQQQQ", 0x1000, 0x200, 6, 0, 0, 0, 0, 0x4000, 0x400, 0, 2, 0x40, 0x100000, 0x1000, 0x100000, 0x1000, 0, 16)
     header += opt_head + b"\x00" * (240 - len(opt_head))
 
-    # Section 1: .text (executable, code)
-    header += struct.pack("<8sIIIIIIHHI", b".text\x00\x00\x00", 0x1000, 0x1000, 0x800, 0x400, 0, 0, 0, 0, 0x60000020)
+    # Section 1: Code section (UPX0 for packed, .text for others)
+    sec1_name = b"UPX0\x00\x00\x00\x00" if archetype == "packed" else b".text\x00\x00\x00"
+    sec1_flags = 0xE0000020 if archetype == "packed" else 0x60000020 # W+X for packed
+    header += struct.pack("<8sIIIIIIHHI", sec1_name, 0x1000, 0x1000, 0x800, 0x400, 0, 0, 0, 0, sec1_flags)
     # Section 2: .rdata (imports / read-only)
     header += struct.pack("<8sIIIIIIHHI", b".rdata\x00\x00", 0x1000, 0x2000, 0x400, 0xC00, 0, 0, 0, 0, 0x40000040)
     # Section 3: .data (read-write)
@@ -70,9 +73,8 @@ def create_synthetic_pe_bytes(archetype: str) -> bytes:
     elif archetype == "packed":
         # High entropy simulation + tiny stub
         code += b"\x55\x48\x89\xe5\xe8\x00\x00\x00\x00\x58\x48\x83\xc0\x10\xff\xe0"
-        # High entropy padding bytes
-        for i in range(512):
-            code.append((i * 137 + 59) % 256)
+        prng = random.Random(1337)
+        code += bytes(prng.randint(0, 255) for _ in range(1024))
     else:
         # Benign
         code += b"\x55\x48\x89\xe5\x48\x83\xec\x20\x48\x83\xc0\x01\xc3"
@@ -90,7 +92,7 @@ def create_synthetic_pe_bytes(archetype: str) -> bytes:
     else:
         strings = b"ReadFile\x00WriteFile\x00GetFileSize\x00CloseHandle\x00"
 
-    code += b"\x00" * (2048 - len(code))
+    code += b"\xcc" * (2048 - len(code))
     code += strings
     code += b"\x00" * (4096 - len(code))
     return bytes(header + code)
@@ -174,7 +176,7 @@ def generate_demo_samples() -> Dict[str, Any]:
             task.report["verdict"]["reason"] = "Structural topology matches standard utility runtime (console I/O, formatting, no crypto/hooking motifs)."
             task.report["scores"]["wl"]["families"] = {"benign": 0.89, "downloader": 0.12, "keylogger": 0.08, "ransomware": 0.05}
             task.report["scores"]["gnn"]["probs"] = {"benign": 0.94, "downloader": 0.03, "keylogger": 0.02, "ransomware": 0.01}
-            task.report["scores"]["fusion"]["p_malware"] = 0.06
+            task.report["scores"]["fusion"]["p_malware"] = 0.02
 
         demos[aid] = task
         # Also index by sample_id

@@ -105,13 +105,16 @@ class CallGraphGNN:
         has_proc = np.any(x[:, 17] > 0.5) if x.shape[1] > 17 else False
 
         if has_crypto and has_file:
-            logits[0, 0] += 3.5  # ransomware
+            logits[0, 0] = max(logits[0, 0] + 4.0, logits[0, 3] + 3.0)
+            logits[0, 3] -= 4.0
         elif has_input:
-            logits[0, 1] += 3.2  # keylogger
+            logits[0, 1] = max(logits[0, 1] + 4.0, logits[0, 3] + 3.0)
+            logits[0, 3] -= 4.0
         elif has_net and (has_proc or has_file):
-            logits[0, 2] += 3.0  # downloader
+            logits[0, 2] = max(logits[0, 2] + 4.0, logits[0, 3] + 3.0)
+            logits[0, 3] -= 4.0
         else:
-            logits[0, 3] += 2.0  # benign
+            logits[0, 3] += 3.5  # benign baseline
 
         # Normalized embedding
         raw_emb = np.dot(g, self.we)

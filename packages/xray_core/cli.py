@@ -100,9 +100,9 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
 
     obfuscation_data = {
         "packed": {
-            "likely": packing_signals.get("is_packed", False),
-            "structure_reliable": not packing_signals.get("is_packed", False),
-            "evidence": packing_signals.get("reasons", [])
+            "likely": packing_signals.get("likely", False),
+            "structure_reliable": packing_signals.get("structure_reliable", True),
+            "evidence": packing_signals.get("evidence", [])
         },
         "cff": cff_candidates,
         "xor_decode": xor_loops_found,

@@ -2,6 +2,7 @@ import re
 import os
 import subprocess
 import tempfile
+import json
 
 def audit_html(filepath):
     print(f"\n==========================================")
@@ -21,6 +22,14 @@ def audit_html(filepath):
     for i, (attrs, code) in enumerate(scripts):
         if not code.strip():
             continue
+        if 'type="importmap"' in attrs or "type='importmap'" in attrs:
+            try:
+                json.loads(code)
+                print(f"[✓] Script {i} (importmap): JSON VALID ({len(code)} bytes)")
+            except Exception as e:
+                print(f"[!] SCRIPT {i} (importmap) JSON SYNTAX ERROR: {e}")
+            continue
+
         is_module = 'type="module"' in attrs or "type='module'" in attrs
         suffix = ".mjs" if is_module else ".js"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False, mode="w", encoding="utf-8") as tmp:
@@ -63,7 +72,7 @@ def audit_html(filepath):
     for h in handlers:
         calls = re.findall(r'([a-zA-Z0-9_]+)\(', h)
         for c in calls:
-            if c not in ('this', 'event', 'console', 'Math', 'alert', 'confirm', 'parseInt', 'parseFloat', 'String', 'Number'):
+            if c not in ('this', 'event', 'console', 'Math', 'alert', 'confirm', 'parseInt', 'parseFloat', 'String', 'Number', 'var', 'let', 'const', 'switch'):
                 fn_calls.add(c)
     print(f"Functions called in event handlers: {sorted(list(fn_calls))}")
     for fn in sorted(list(fn_calls)):

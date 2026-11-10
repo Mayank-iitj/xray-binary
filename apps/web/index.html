@@ -7,11 +7,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.11.4/dist/style.css">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   <script src="https://unpkg.com/3d-force-graph@1.73.3/dist/3d-force-graph.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reactflow@11.11.4/dist/umd/index.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -85,6 +89,24 @@
     .toggle-checkbox:checked + .toggle-label {
       background-color: #2563EB;
     }
+    /* ReactFlow Dark Theme Customization */
+    .react-flow__attribution { display: none !important; }
+    .react-flow__controls-button {
+      background-color: #1E293B !important;
+      border-bottom: 1px solid #334155 !important;
+      color: #94A3B8 !important;
+      fill: #94A3B8 !important;
+    }
+    .react-flow__controls-button:hover {
+      background-color: #334155 !important;
+      color: #FFFFFF !important;
+      fill: #FFFFFF !important;
+    }
+    .react-flow__minimap {
+      background-color: #0F172A !important;
+      border: 1px solid #334155 !important;
+      border-radius: 12px !important;
+    }
   </style>
 </head>
 <body class="min-h-screen flex antialiased bg-[#F8FAFC]">
@@ -142,9 +164,9 @@
             <button onclick="switchTab('graph')" id="nav-graph" class="nav-btn w-full px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center justify-between group transition">
               <span class="flex items-center gap-2.5">
                 <i data-lucide="share-2" class="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition"></i>
-                <span>3D Call Graph</span>
+                <span>Call Graph</span>
               </span>
-              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">WebGL</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">ReactFlow</span>
             </button>
             <button onclick="switchTab('obfuscation')" id="nav-obfuscation" class="nav-btn w-full px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center justify-between group transition">
               <span class="flex items-center gap-2.5">
@@ -217,7 +239,7 @@
                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                 <span>Benign Utility</span>
               </span>
-              <span class="text-[10px] text-slate-400">0.06</span>
+              <span class="text-[10px] text-emerald-600 font-semibold">94.0%</span>
             </button>
             <button onclick="loadPresetSample('demo-packed')" data-preset="demo-packed" class="preset-btn w-full text-left px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-amber-600 flex items-center justify-between transition">
               <span class="flex items-center gap-2">
@@ -713,11 +735,14 @@
         </div>
       </section>
 
-      <!-- ==================== TAB 3: 3D CALL GRAPH ==================== -->
+      <!-- ==================== TAB 3: REACTFLOW & 3D CALL GRAPH ==================== -->
       <section id="tab-graph" class="tab-pane hidden space-y-4">
         <div class="bg-white rounded-2xl border border-[#E8ECF2] shadow-card overflow-hidden relative">
-          <!-- Canvas Container -->
-          <div id="3d-graph-canvas" class="w-full h-[620px] bg-[#0A0E17]"></div>
+          <!-- ReactFlow Graph Container (Default) -->
+          <div id="reactflow-graph-container" class="w-full h-[650px] bg-[#0A0E17] relative overflow-hidden"></div>
+          
+          <!-- 3D Force Graph WebGL Canvas (Toggled Mode) -->
+          <div id="3d-graph-canvas" class="w-full h-[650px] bg-[#0A0E17] hidden"></div>
 
           <!-- Floating Overlay Controls -->
           <div class="absolute top-4 left-4 z-20 flex flex-col gap-2">
@@ -726,8 +751,9 @@
                 <span class="font-bold text-slate-900 flex items-center gap-1.5">
                   <i data-lucide="layers" class="w-4 h-4 text-blue-600"></i> Call Graph
                 </span>
-                <button onclick="toggle2DMode()" id="btn-2d-mode" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-blue-600 font-mono text-[10px] font-semibold transition">
-                  2D Mode [g]
+                <button onclick="toggleGraphMode()" id="btn-graph-mode" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-blue-600 font-mono text-[10px] font-bold transition flex items-center gap-1">
+                  <i data-lucide="box" class="w-3 h-3"></i>
+                  <span>3D WebGL [g]</span>
                 </button>
               </div>
               <div>
@@ -741,7 +767,7 @@
                 <button onclick="focusTopEvidenceNode()" class="flex-1 py-1.5 px-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] flex items-center justify-center gap-1 transition">
                   <i data-lucide="crosshair" class="w-3.5 h-3.5"></i> Focus Evidence
                 </button>
-                <button onclick="resetGraphCamera()" class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600" title="Reset Camera">
+                <button onclick="resetGraphCamera()" class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600" title="Reset View">
                   <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                 </button>
               </div>
@@ -1043,7 +1069,7 @@
       }
 
       if (tabId === 'graph') {
-        setTimeout(render3DGraph, 100);
+        setTimeout(renderCallGraph, 100);
       }
       if (tabId === 'compare') {
         const simVal = document.getElementById('compare-sim-val');
@@ -1222,10 +1248,10 @@
         populateObfuscationTab(rep);
         updateDashboardKPIs(rep);
 
-        // Refresh 3D graph if visible
+        // Refresh call graph if visible
         const graphTab = document.getElementById('tab-graph');
         if (graphTab && !graphTab.classList.contains('hidden')) {
-          render3DGraph();
+          renderCallGraph();
         }
       } catch (e) {
         console.error('Failed to load demo preset:', e);
@@ -1450,23 +1476,279 @@
       }
     }
 
+    // Call Graph State (ReactFlow & 3D Force WebGL)
+    let isReactFlowMode = true;
+    let reactFlowRoot = null;
+    let cachedGraphData = null;
+
+    async function loadCallGraphPayload() {
+      const aid = currentAnalysis?.analysis_id || 'demo-ransomware';
+      try {
+        const res = await fetch(`/api/v1/analyses/${aid}/graph`);
+        cachedGraphData = await res.json();
+      } catch (e) {
+        console.error('Failed to load call graph data:', e);
+      }
+      return cachedGraphData;
+    }
+
+    async function renderCallGraph() {
+      await loadCallGraphPayload();
+      if (!cachedGraphData) return;
+
+      const rfContainer = document.getElementById('reactflow-graph-container');
+      const webglContainer = document.getElementById('3d-graph-canvas');
+
+      if (isReactFlowMode) {
+        if (rfContainer) rfContainer.classList.remove('hidden');
+        if (webglContainer) webglContainer.classList.add('hidden');
+        renderReactFlow();
+      } else {
+        if (rfContainer) rfContainer.classList.add('hidden');
+        if (webglContainer) webglContainer.classList.remove('hidden');
+        render3DGraph();
+      }
+    }
+
+    function toggleGraphMode() {
+      isReactFlowMode = !isReactFlowMode;
+      const btn = document.getElementById('btn-graph-mode');
+      if (btn) {
+        btn.innerHTML = isReactFlowMode 
+          ? '<i data-lucide="box" class="w-3 h-3"></i><span>3D WebGL [g]</span>'
+          : '<i data-lucide="git-fork" class="w-3 h-3"></i><span>ReactFlow [g]</span>';
+        lucide.createIcons();
+      }
+      renderCallGraph();
+    }
+
+    // ReactFlow DAG Architecture Renderer
+    function renderReactFlow() {
+      const container = document.getElementById('reactflow-graph-container');
+      if (!container || !cachedGraphData) return;
+
+      const rawNodes = cachedGraphData.nodes || [];
+      const rawLinks = cachedGraphData.links || cachedGraphData.edges || [];
+
+      // Calculate hierarchical levels
+      const inDegree = {};
+      rawNodes.forEach(n => { inDegree[n.id] = 0; });
+      rawLinks.forEach(l => {
+        const target = typeof l.target === 'object' ? l.target.id : l.target;
+        inDegree[target] = (inDegree[target] || 0) + 1;
+      });
+
+      const levels = {};
+      const roots = rawNodes.filter(n => (inDegree[n.id] || 0) === 0);
+      if (roots.length === 0 && rawNodes.length > 0) roots.push(rawNodes[0]);
+      roots.forEach(n => { levels[n.id] = 0; });
+
+      const queue = roots.map(n => n.id);
+      while (queue.length > 0) {
+        const curr = queue.shift();
+        const currLevel = levels[curr] || 0;
+        rawLinks.filter(l => (typeof l.source === 'object' ? l.source.id : l.source) === curr).forEach(l => {
+          const tgt = typeof l.target === 'object' ? l.target.id : l.target;
+          if (levels[tgt] === undefined || levels[tgt] < currLevel + 1) {
+            levels[tgt] = currLevel + 1;
+            queue.push(tgt);
+          }
+        });
+      }
+
+      const levelGroups = {};
+      rawNodes.forEach(n => {
+        const lvl = levels[n.id] || 0;
+        if (!levelGroups[lvl]) levelGroups[lvl] = [];
+        levelGroups[lvl].push(n);
+      });
+
+      // Try ReactFlow UMD Mounting if available
+      if (window.React && window.ReactDOM && window.ReactFlow) {
+        try {
+          const RF = window.ReactFlow.default || window.ReactFlow;
+          const { ReactFlow: FlowComponent, Background, Controls, MiniMap, Handle, Position, MarkerType } = RF;
+
+          const rfNodes = [];
+          Object.keys(levelGroups).forEach(lvlStr => {
+            const lvl = parseInt(lvlStr, 10);
+            const group = levelGroups[lvl];
+            const startX = Math.max(40, 500 - (group.length * 270) / 2);
+            group.forEach((node, idx) => {
+              rfNodes.push({
+                id: node.id,
+                type: 'functionCard',
+                position: { x: startX + idx * 270, y: 50 + lvl * 180 },
+                data: {
+                  id: node.id,
+                  score: node.score || 0.0,
+                  api: node.api || [],
+                  blocks: node.blocks || 8,
+                  cyclomatic: node.cyclomatic || 3
+                }
+              });
+            });
+          });
+
+          const rfEdges = rawLinks.map((l, i) => {
+            const source = typeof l.source === 'object' ? l.source.id : l.source;
+            const target = typeof l.target === 'object' ? l.target.id : l.target;
+            const srcNode = rawNodes.find(n => n.id === source);
+            const isMal = (srcNode?.score || 0) >= 0.70;
+            return {
+              id: `rf-edge-${source}-${target}-${i}`,
+              source,
+              target,
+              animated: true,
+              type: 'smoothstep',
+              style: { stroke: isMal ? '#EF4444' : '#3B82F6', strokeWidth: 2 },
+              markerEnd: { type: MarkerType?.ArrowClosed || 'arrowclosed', color: isMal ? '#EF4444' : '#3B82F6' }
+            };
+          });
+
+          const FunctionCard = ({ data, id }) => {
+            const isMal = data.score >= 0.75;
+            const isSusp = data.score >= 0.40 && data.score < 0.75;
+            const badgeCls = isMal ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' : (isSusp ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40');
+            const borderCls = isMal ? 'border-rose-500/70 shadow-[0_0_15px_rgba(239,68,68,0.25)]' : (isSusp ? 'border-amber-500/50' : 'border-slate-700/80');
+
+            return React.createElement('div', {
+              onClick: () => openNodeInspector(id),
+              className: `px-4 py-3 rounded-xl bg-[#0F172A] border ${borderCls} text-white cursor-pointer hover:border-blue-400 hover:scale-[1.02] transition duration-200 min-w-[220px] shadow-xl select-none`
+            }, [
+              React.createElement(Handle, { key: 'in', type: 'target', position: Position?.Top || 'top', className: '!bg-blue-500 !w-2.5 !h-2.5' }),
+              React.createElement('div', { key: 'head', className: 'flex items-center justify-between gap-2 mb-2' }, [
+                React.createElement('span', { className: 'font-mono text-xs font-bold text-blue-400' }, id),
+                React.createElement('span', { className: `text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeCls}` }, `${Math.round(data.score * 100)}%`)
+              ]),
+              React.createElement('div', { key: 'apis', className: 'flex flex-wrap gap-1 mb-2.5' },
+                (data.api?.length ? data.api : ['code']).map(a => React.createElement('span', { key: a, className: 'px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-300 border border-slate-700' }, a))
+              ),
+              React.createElement('div', { key: 'meta', className: 'flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800 font-mono' }, [
+                React.createElement('span', null, `Blocks: ${data.blocks || 8}`),
+                React.createElement('span', null, `CC: ${data.cyclomatic || 3}`)
+              ]),
+              React.createElement(Handle, { key: 'out', type: 'source', position: Position?.Bottom || 'bottom', className: '!bg-blue-500 !w-2.5 !h-2.5' })
+            ]);
+          };
+
+          const nodeTypes = { functionCard: FunctionCard };
+
+          const ReactFlowCanvas = () => {
+            return React.createElement(FlowComponent, {
+              nodes: rfNodes,
+              edges: rfEdges,
+              nodeTypes: nodeTypes,
+              fitView: true,
+              style: { backgroundColor: '#0A0E17', width: '100%', height: '100%' }
+            }, [
+              React.createElement(Background, { key: 'bg', variant: 'dots', gap: 16, size: 1, color: '#334155' }),
+              React.createElement(Controls, { key: 'ctrl' }),
+              React.createElement(MiniMap, {
+                key: 'map',
+                nodeColor: n => (n.data?.score >= 0.75 ? '#EF4444' : (n.data?.score >= 0.40 ? '#F59E0B' : '#10B981')),
+                maskColor: 'rgba(15, 23, 42, 0.75)'
+              })
+            ]);
+          };
+
+          if (!reactFlowRoot) {
+            reactFlowRoot = ReactDOM.createRoot(container);
+          }
+          reactFlowRoot.render(React.createElement(ReactFlowCanvas));
+          return;
+        } catch (rfErr) {
+          console.warn('ReactFlow mount notice, activating native SVG ReactFlow renderer:', rfErr);
+        }
+      }
+
+      // Native ReactFlow SVG DAG Renderer (Instant 100% Offline Resilience)
+      renderNativeReactFlowDAG(container, rawNodes, rawLinks, levelGroups);
+    }
+
+    // Native SVG Fallback with ReactFlow Node Card Aesthetics
+    function renderNativeReactFlowDAG(container, rawNodes, rawLinks, levelGroups) {
+      container.innerHTML = '';
+      const w = container.offsetWidth || 1100;
+      const h = container.offsetHeight || 650;
+
+      const nodeCoords = {};
+      const nodeElements = [];
+      const edgePaths = [];
+
+      Object.keys(levelGroups).forEach(lvlStr => {
+        const lvl = parseInt(lvlStr, 10);
+        const group = levelGroups[lvl];
+        const startX = Math.max(50, (w - group.length * 270) / 2);
+        group.forEach((node, idx) => {
+          const x = startX + idx * 270;
+          const y = 50 + lvl * 180;
+          nodeCoords[node.id] = { topX: x + 115, topY: y, botX: x + 115, botY: y + 96 };
+
+          const isMal = (node.score || 0) >= 0.75;
+          const isSusp = (node.score || 0) >= 0.40 && (node.score || 0) < 0.75;
+          const badgeBg = isMal ? 'rgba(239, 68, 68, 0.15)' : (isSusp ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)');
+          const badgeColor = isMal ? '#F87171' : (isSusp ? '#FBBF24' : '#34D399');
+          const borderStroke = isMal ? '#EF4444' : (isSusp ? '#F59E0B' : '#334155');
+
+          nodeElements.push(`
+            <div onclick="openNodeInspector('${node.id}')" style="position: absolute; left: ${x}px; top: ${y}px; width: 230px;" class="px-4 py-3 rounded-xl bg-[#0F172A] border hover:border-blue-400 hover:scale-[1.02] transition duration-200 cursor-pointer shadow-xl select-none text-white z-10" style="border-color: ${borderStroke};">
+              <div class="w-2.5 h-2.5 rounded-full bg-blue-500 absolute -top-1.5 left-1/2 -translate-x-1/2 border-2 border-[#0A0E17]"></div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="font-mono text-xs font-bold text-blue-400 truncate">${node.id}</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border" style="background: ${badgeBg}; color: ${badgeColor}; border-color: ${borderStroke};">${Math.round((node.score || 0) * 100)}%</span>
+              </div>
+              <div class="flex flex-wrap gap-1 mb-2.5">
+                ${(node.api?.length ? node.api : ['code']).map(a => `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-300 border border-slate-700">${a}</span>`).join('')}
+              </div>
+              <div class="flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800 font-mono">
+                <span>Blocks: ${node.blocks || 8}</span>
+                <span>CC: ${node.cyclomatic || 3}</span>
+              </div>
+              <div class="w-2.5 h-2.5 rounded-full bg-blue-500 absolute -bottom-1.5 left-1/2 -translate-x-1/2 border-2 border-[#0A0E17]"></div>
+            </div>
+          `);
+        });
+      });
+
+      rawLinks.forEach(l => {
+        const src = typeof l.source === 'object' ? l.source.id : l.source;
+        const tgt = typeof l.target === 'object' ? l.target.id : l.target;
+        const c1 = nodeCoords[src];
+        const c2 = nodeCoords[tgt];
+        if (c1 && c2) {
+          const sx = c1.botX, sy = c1.botY;
+          const tx = c2.topX, ty = c2.topY;
+          const my = (sy + ty) / 2;
+          edgePaths.push(`
+            <path d="M ${sx} ${sy} C ${sx} ${my}, ${tx} ${my}, ${tx} ${ty}" fill="none" stroke="#3B82F6" stroke-width="2" stroke-dasharray="6,4" class="animate-pulse" />
+            <polygon points="${tx},${ty} ${tx-4},${ty-8} ${tx+4},${ty-8}" fill="#3B82F6" />
+          `);
+        }
+      });
+
+      container.innerHTML = `
+        <svg style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;">
+          <defs>
+            <pattern id="dot-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <circle cx="2" cy="2" r="1" fill="#334155" opacity="0.6" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#dot-grid)" />
+          ${edgePaths.join('')}
+        </svg>
+        ${nodeElements.join('')}
+      `;
+    }
+
     // 3D Force Graph WebGL Renderer
     async function render3DGraph() {
       const container = document.getElementById('3d-graph-canvas');
       if (!container) return;
 
-      const aid = currentAnalysis?.analysis_id || 'demo-ransomware';
-      let graphData;
-      try {
-        const res = await fetch(`/api/v1/analyses/${aid}/graph`);
-        graphData = await res.json();
-      } catch (e) {
-        return;
-      }
+      const links = cachedGraphData?.links || cachedGraphData?.edges || [];
 
-      const links = graphData.links || graphData.edges || [];
-
-      if (!graph3DInstance) {
+      if (!graph3DInstance && typeof ForceGraph3D === 'function') {
         graph3DInstance = ForceGraph3D()(container)
           .backgroundColor('#0A0E17')
           .nodeId('id')
@@ -1485,23 +1767,26 @@
           .onNodeClick(node => openNodeInspector(node.id));
       }
 
-      graph3DInstance.graphData({ nodes: graphData.nodes || [], links: links });
-    }
-
-    function toggle2DMode() {
-      is2DMode = !is2DMode;
-      const btn = document.getElementById('btn-2d-mode');
-      if (btn) btn.textContent = is2DMode ? '3D Mode [g]' : '2D Mode [g]';
-      if (graph3DInstance) graph3DInstance.numDimensions(is2DMode ? 2 : 3);
+      if (graph3DInstance && cachedGraphData) {
+        graph3DInstance.graphData({ nodes: cachedGraphData.nodes || [], links: links });
+      }
     }
 
     function filterGraphByScore(minVal) {
       const disp = document.getElementById('filter-val');
       if (disp) disp.textContent = parseFloat(minVal).toFixed(2);
+      const minFloat = parseFloat(minVal);
       if (graph3DInstance) {
-        const minFloat = parseFloat(minVal);
         graph3DInstance.nodeVisibility(node => (node.score || 0) >= minFloat);
       }
+      // Also filter ReactFlow nodes
+      document.querySelectorAll('#reactflow-graph-container > div').forEach(nodeEl => {
+        const scoreBadge = nodeEl.querySelector('span:last-child');
+        if (scoreBadge) {
+          const score = parseInt(scoreBadge.textContent || '0', 10) / 100;
+          nodeEl.style.display = score >= minFloat ? 'block' : 'none';
+        }
+      });
     }
 
     function focusTopEvidenceNode() {
@@ -1510,7 +1795,11 @@
     }
 
     function resetGraphCamera() {
-      if (graph3DInstance) graph3DInstance.cameraPosition({ x: 0, y: 0, z: 300 }, { x: 0, y: 0, z: 0 }, 800);
+      if (isReactFlowMode) {
+        renderReactFlow();
+      } else if (graph3DInstance) {
+        graph3DInstance.cameraPosition({ x: 0, y: 0, z: 300 }, { x: 0, y: 0, z: 0 }, 800);
+      }
     }
 
     // Node Inspector
@@ -1808,7 +2097,7 @@
       else if (e.key === '3') switchTab('graph');
       else if (e.key === '4') switchTab('obfuscation');
       else if (e.key === '5') switchTab('lab');
-      else if (e.key === 'g' || e.key === 'G') toggle2DMode();
+      else if (e.key === 'g' || e.key === 'G') toggleGraphMode();
       else if (e.key === 'Escape') {
         closeNodeInspector();
         const m = document.getElementById('help-modal');
