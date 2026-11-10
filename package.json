@@ -1,0 +1,8 @@
+{
+  "name": "xray-binary",
+  "version": "1.0.0",
+  "description": "X-Ray Binary — Structural Malware Triage Platform",
+  "scripts": {
+    "build": "echo 'Frontend build ready for deployment'"
+  }
+}

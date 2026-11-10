@@ -1271,6 +1271,20 @@
                 </div>
               </div>
 
+              <!-- Cloud Deployment & Render Service Link -->
+              <div class="pt-1">
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Render Backend Service URL</label>
+                  <span class="text-[10px] text-slate-400">Leave blank for auto-proxy</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="url" id="settings-backend-url" placeholder="https://xray-binary-api.onrender.com" class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono placeholder-slate-400 focus:outline-none focus:border-blue-500">
+                  <button type="button" onclick="saveBackendUrl()" class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition">
+                    Save
+                  </button>
+                </div>
+              </div>
+
               <div class="pt-1">
                 <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Diagnostic Log Console</label>
                 <div id="settings-diagnostics-log" class="p-3 bg-slate-900 text-emerald-400 rounded-xl font-mono text-[11px] h-28 overflow-y-auto space-y-1">
@@ -1764,6 +1778,20 @@
 
   <!-- JavaScript Application Logic -->
   <script>
+    // ==================== DYNAMIC BACKEND RESOLVER (FOR VERCEL <-> RENDER) ====================
+    (function() {
+      const originalFetch = window.fetch;
+      window.fetch = function(resource, init) {
+        if (typeof resource === 'string' && resource.startsWith('/api/')) {
+          const customBackend = localStorage.getItem('xray_backend_url') || window.XRAY_BACKEND_URL;
+          if (customBackend) {
+            resource = customBackend.replace(/\/+$/, '') + resource;
+          }
+        }
+        return originalFetch.call(this, resource, init);
+      };
+    })();
+
     let currentAnalysis = null;
     let graph3DInstance = null;
     let is2DMode = false;
@@ -2196,6 +2224,9 @@
         const deepCacheEl = document.getElementById('settings-deep-cache');
         if (deepCacheEl) deepCacheEl.checked = true;
 
+        const bUrlEl = document.getElementById('settings-backend-url');
+        if (bUrlEl) bUrlEl.value = localStorage.getItem('xray_backend_url') || '';
+
         updateSettingsSliderDisplays();
       } catch (err) {
         console.error('Failed to load settings:', err);
@@ -2275,6 +2306,19 @@
       } catch (err) {
         console.error(err);
       }
+    }
+
+    function saveBackendUrl() {
+      const input = document.getElementById('settings-backend-url');
+      const url = input ? input.value.trim().replace(/\/+$/, '') : '';
+      if (url) {
+        localStorage.setItem('xray_backend_url', url);
+        showToast(`Backend connected to: ${url}`, 'success');
+      } else {
+        localStorage.removeItem('xray_backend_url');
+        showToast('Reset to default auto-proxy / local backend', 'info');
+      }
+      testBackendConnection();
     }
 
     async function testBackendConnection() {
