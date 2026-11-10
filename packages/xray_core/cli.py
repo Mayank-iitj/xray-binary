@@ -53,34 +53,36 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
         return 1
 
     sha256_hash = hashlib.sha256(file_bytes).hexdigest()
-    extracted = extract_binary_graph(file_bytes, unpack=unpack)
+    extracted = extract_binary_graph(file_bytes)
     corpus = get_reference_corpus()
 
     # WL Feature Extraction
-    q_vec = wl_features(extracted.call_graph, depth=3)
-    wl_sims = {fam: cosine(q_vec, r_vec) for fam, r_vec in corpus.wl_vectors.items()}
+    nodes_dict = extracted.get("nodes", {})
+    edges_list = extracted.get("edges", [])
+    node_metadata = extracted.get("node_metadata", {})
+    q_vec, _ = wl_features(nodes_dict, edges_list, iters=3)
+    wl_sims, top_fam, top_wl_score = corpus.score_sample(q_vec)
     benign_sim = wl_sims.get("benign", 0.0)
 
     # GNN Inference
-    nodes = list(extracted.call_graph.nodes())
-    node_metadata = extracted.call_graph.nodes
-    x, node_to_idx = extract_node_feature_matrix(nodes, node_metadata)
-    edge_index = build_edge_index(extracted.call_graph.edges(), node_to_idx)
+    x, node_to_idx = extract_node_feature_matrix(nodes_dict, node_metadata)
+    edge_index = build_edge_index(edges_list, node_to_idx)
     gnn = CallGraphGNN()
     logits, _ = gnn.forward(x, edge_index)
     import numpy as np
-    exp_logits = np.exp(logits - np.max(logits))
+    flat_logits = logits.flatten()
+    exp_logits = np.exp(flat_logits - np.max(flat_logits))
     probs = (exp_logits / np.sum(exp_logits)).tolist()
-    gnn_probs = {CLASSES[i]: round(probs[i], 3) for i in range(len(CLASSES))}
+    gnn_probs = {CLASSES[i]: round(float(probs[i]), 3) for i in range(len(CLASSES))}
 
     # Obfuscation Analysis
-    sections = extracted.pe_meta.get("sections", [])
-    imports = extracted.pe_meta.get("imports", [])
+    sections = extracted.get("sections", [])
+    imports = extracted.get("imports", [])
     packing_signals = packing_indicators(sections, imports)
 
     cff_candidates = []
     xor_loops_found = []
-    for fn_id, cfg in extracted.cfgs.items():
+    for fn_id, cfg in extracted.get("cfgs", {}).items():
         cff_res = cff_score(cfg)
         if cff_res.get("is_cff"):
             cff_candidates.append({
@@ -126,7 +128,7 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
             "scores": {
                 "wl": wl_sims,
                 "gnn": gnn_probs,
-                "p_malware": fused["p_malware"]
+                "p_malware": fused.get("fusion", {}).get("p_malware", 0.0)
             },
             "obfuscation": obfuscation_data
         }
@@ -137,8 +139,9 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
     print(BANNER)
     print(f" Target File  : {file_path}")
     print(f" SHA-256      : {sha256_hash}")
-    print(f" File Size    : {len(file_bytes)} bytes | Arch: {extracted.pe_meta.get('arch', 'x86_64')}")
-    print(f" Functions    : {len(extracted.call_graph.nodes)} recovered nodes, {len(extracted.call_graph.edges)} call edges")
+    meta = extracted.get("metadata", {})
+    print(f" File Size    : {len(file_bytes)} bytes | Arch: {meta.get('arch', 'x86_64')}")
+    print(f" Functions    : {len(nodes_dict)} recovered nodes, {len(edges_list)} call edges")
     print("-" * 65)
 
     label = verdict["label"].upper()
@@ -152,8 +155,8 @@ def scan_binary(file_path: str, output_format: str = "text", unpack: bool = True
     print("-" * 65)
     print(" MODEL CONVERGENCE & AGREEMENT:")
     print(f"  • WL Kernel Similarities : {', '.join(f'{k}={v:.2f}' for k, v in wl_sims.items())}")
-    print(f"  • Call-Graph GIN Probs   : {', '.join(f'{k}={v:.2f}' for k, v in gnn_out['probs'].items())}")
-    print(f"  • Calibrated P(Malware)  : {fused['p_malware']:.3f} (Agreement: {fused.get('agreement', 'N/A')})")
+    print(f"  • Call-Graph GIN Probs   : {', '.join(f'{k}={v:.2f}' for k, v in gnn_probs.items())}")
+    print(f"  • Calibrated P(Malware)  : {fused.get('fusion', {}).get('p_malware', 0.0):.3f} (Agreement: {fused.get('fusion', {}).get('agreement', 'N/A')})")
     print("-" * 65)
     print(" OBFUSCATION & PACKING TELEMETRY:")
     print(f"  • Section Entropy        : {obfuscation_data.get('entropy', 0.0):.2f} / 8.00 (Packed: {obfuscation_data['packed']['likely']})")
@@ -172,19 +175,19 @@ def compare_binaries(file_a: str, file_b: str) -> int:
         bytes_a = fa.read()
         bytes_b = fb.read()
 
-    feat_a = extract_binary_graph(bytes_a)
-    feat_b = extract_binary_graph(bytes_b)
+    ext_a = extract_binary_graph(bytes_a)
+    ext_b = extract_binary_graph(bytes_b)
 
-    vec_a = wl_features(feat_a.call_graph, depth=3)
-    vec_b = wl_features(feat_b.call_graph, depth=3)
+    vec_a, _ = wl_features(ext_a.get("nodes", {}), ext_a.get("edges", []), iters=3)
+    vec_b, _ = wl_features(ext_b.get("nodes", {}), ext_b.get("edges", []), iters=3)
 
     sim = cosine(vec_a, vec_b)
     shared = len(set(vec_a.keys()) & set(vec_b.keys()))
 
     print(BANNER)
     print(" PAIRWISE STRUCTURAL COMPARISON")
-    print(f" Sample A : {file_a} ({len(feat_a.call_graph.nodes)} functions)")
-    print(f" Sample B : {file_b} ({len(feat_b.call_graph.nodes)} functions)")
+    print(f" Sample A : {file_a} ({len(ext_a.get('nodes', {}))} functions)")
+    print(f" Sample B : {file_b} ({len(ext_b.get('nodes', {}))} functions)")
     print("-" * 65)
     print(f" Weisfeiler-Lehman Cosine Similarity : {sim:.4f}")
     print(f" Shared Structural Motifs            : {shared}")

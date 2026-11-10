@@ -88,3 +88,4 @@ def audit_html(filepath):
 if __name__ == "__main__":
     audit_html("apps/web/landing.html")
     audit_html("apps/web/index.html")
+
