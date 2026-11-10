@@ -1,0 +1,17 @@
+# Vercel Deployment Ignore
+# Ignores backend Python services so Vercel builds the frontend statically in seconds
+
+apps/api
+packages
+tests
+reference
+samples
+artifacts
+Dockerfile
+docker-compose.yml
+render.yaml
+.env
+.env.*
+.mypy_cache
+.pytest_cache
+.ruff_cache
