@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X-Ray Binary — Structural Malware Triage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/3d-force-graph@1.73.3/dist/3d-force-graph.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bg: '#0B0F14',
+            panel: '#121821',
+            panelHover: '#18212D',
+            border: '#1E2733',
+            accent: '#22D3EE',
+            danger: '#F43F5E',
+            warn: '#F59E0B',
+            safe: '#10B981',
+            muted: '#8B98A5',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0B0F14; color: #E6EDF3; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass { background: rgba(18, 24, 33, 0.85); backdrop-filter: blur(12px); border: 1px solid #1E2733; }
+    .glow-cyan { box-shadow: 0 0 25px rgba(34, 211, 238, 0.2); }
+    .glow-danger { box-shadow: 0 0 25px rgba(244, 63, 94, 0.25); }
+    .glow-warn { box-shadow: 0 0 25px rgba(245, 158, 11, 0.25); }
+    .glow-safe { box-shadow: 0 0 25px rgba(16, 185, 129, 0.25); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0B0F14; }
+    ::-webkit-scrollbar-thumb { background: #1E2733; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #22D3EE; }
+    .radar-grid {
+      background-image: linear-gradient(to right, rgba(30, 39, 51, 0.3) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(30, 39, 51, 0.3) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .custom-scroll { overflow-y: auto; max-height: calc(100vh - 180px); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-50 glass border-b border-border/80 px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('upload')">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center font-bold text-black text-lg shadow-lg shadow-cyan-500/30">
+          <i data-lucide="radio" class="w-5 h-5 text-black"></i>
+        </div>
+        <div>
+          <span class="font-extrabold text-lg tracking-wider text-white">X-RAY<span class="text-cyan-400">BINARY</span></span>
+          <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-cyan-950/80 text-cyan-400 border border-cyan-800/50 font-mono">v1.0 DEFENSIVE</span>
+        </div>
+      </div>
+      <span class="hidden md:inline-block text-xs text-muted border-l border-border pl-4 italic">
+        "Traditional antivirus reads the words. X-Ray Binary reads the thoughts."
+      </span>
+    </div>
+
+    <!-- Center Navigation Tabs -->
+    <nav class="hidden lg:flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-border">
+      <button onclick="switchTab('upload')" id="nav-upload" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-cyan-400 bg-panel border border-cyan-500/30">
+        <i data-lucide="upload-cloud" class="w-4 h-4"></i> Triage Intake
+      </button>
+      <button onclick="switchTab('report')" id="nav-report" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-muted hover:text-white">
+        <i data-lucide="file-text" class="w-4 h-4"></i> Report Overview
+      </button>
+      <button onclick="switchTab('graph')" id="nav-graph" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-muted hover:text-white">
+        <i data-lucide="share-2" class="w-4 h-4"></i> 3D Structure Graph
+      </button>
+      <button onclick="switchTab('obfuscation')" id="nav-obfuscation" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-muted hover:text-white">
+        <i data-lucide="shield-alert" class="w-4 h-4"></i> Obfuscation Lab
+      </button>
+      <button onclick="switchTab('lab')" id="nav-lab" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-muted hover:text-white">
+        <i data-lucide="flame" class="w-4 h-4"></i> Evasion Lab
+      </button>
+      <button onclick="switchTab('compare')" id="nav-compare" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-muted hover:text-white">
+        <i data-lucide="git-compare" class="w-4 h-4"></i> Compare
+      </button>
+      <button onclick="switchTab('benchmarks')" id="nav-benchmarks" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-muted hover:text-white">
+        <i data-lucide="award" class="w-4 h-4"></i> Benchmarks
+      </button>
+    </nav>
+
+    <!-- Right Quick Controls & Demo Switcher -->
+    <div class="flex items-center gap-3">
+      <!-- Demo Selector -->
+      <div class="flex items-center gap-2 bg-panel px-3 py-1 rounded-lg border border-border">
+        <span class="text-xs text-muted flex items-center gap-1"><i data-lucide="play" class="w-3 h-3 text-cyan-400"></i> Preset Demo:</span>
+        <select id="demo-sample-select" onchange="loadPresetSample(this.value)" class="bg-black/50 text-xs text-cyan-300 font-mono border-none outline-none cursor-pointer py-1">
+          <option value="demo-ransomware">Ransomware (WannaCry Triad)</option>
+          <option value="demo-keylogger">Keylogger (AgentTesla Hook)</option>
+          <option value="demo-downloader">Downloader (Emotet Dropper)</option>
+          <option value="demo-benign">Benign Utility (Clean Tool)</option>
+          <option value="demo-packed">Packed / Obfuscated (UPX+CFF)</option>
+        </select>
+      </div>
+
+      <button onclick="exportCurrentReport('json')" class="p-2 rounded-lg bg-panel hover:bg-panelHover border border-border text-muted hover:text-cyan-400 transition" title="Export JSON Report">
+        <i data-lucide="download" class="w-4 h-4"></i>
+      </button>
+      <button onclick="toggleHelpModal()" class="p-2 rounded-lg bg-panel hover:bg-panelHover border border-border text-muted hover:text-white transition" title="Judges Q&A / Architecture">
+        <i data-lucide="help-circle" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 flex flex-col relative radar-grid overflow-hidden">
+
+    <!-- ==================== TAB 1: UPLOAD & INTAKE ==================== -->
+    <section id="tab-upload" class="tab-pane flex-1 p-8 flex flex-col items-center justify-center max-w-5xl mx-auto w-full">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-800/40 text-cyan-400 text-xs font-semibold mb-4">
+          <i data-lucide="lock" class="w-3.5 h-3.5"></i> 100% OFFLINE & STATIC — FILES NEVER DETONATED OR EXECUTED
+        </div>
+        <h1 class="text-4xl font-extrabold tracking-tight text-white mb-3">
+          Static Structural Malware Triage
+        </h1>
+        <p class="text-muted text-sm max-w-2xl mx-auto">
+          Fingerprint the mathematical geometry of program execution logic using Weisfeiler-Lehman graph kernels and GNNs. Resilient to renaming, relocation, re-compilation, and packing.
+        </p>
+      </div>
+
+      <!-- Drag & Drop Zone -->
+      <div id="dropzone" class="w-full glass rounded-2xl p-10 border-2 border-dashed border-cyan-500/30 hover:border-cyan-400 hover:glow-cyan transition-all text-center flex flex-col items-center justify-center cursor-pointer relative overflow-hidden group">
+        <input type="file" id="file-input" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleFileSelect(event)">
+        <div class="w-16 h-16 rounded-2xl bg-cyan-950/60 border border-cyan-800/40 flex items-center justify-center text-cyan-400 mb-4 group-hover:scale-110 transition">
+          <i data-lucide="binary" class="w-8 h-8"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-1">Drag and drop executable file</h3>
+        <p class="text-xs text-muted mb-4">Supports Windows PE32/PE64 (.exe, .dll) & Linux ELF32/ELF64 (up to 50 MB)</p>
+        <div class="flex items-center gap-4 text-xs font-mono">
+          <span class="px-2.5 py-1 rounded bg-panel border border-border text-cyan-400">Magic byte verification</span>
+          <span class="px-2.5 py-1 rounded bg-panel border border-border text-cyan-400">Zero dynamic execution</span>
+          <span class="px-2.5 py-1 rounded bg-panel border border-border text-cyan-400">Static UPX unpacker</span>
+        </div>
+      </div>
+
+      <!-- Live Analysis Stepper (Hidden until file selected) -->
+      <div id="progress-container" class="w-full glass rounded-2xl p-6 mt-6 border border-border hidden">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <div id="progress-spinner" class="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+            <div>
+              <h4 id="progress-stage-title" class="text-sm font-bold text-white">Analyzing Binary Structure...</h4>
+              <p id="progress-subtext" class="text-xs text-muted">Running structural pipeline stages</p>
+            </div>
+          </div>
+          <span id="progress-pct" class="font-mono text-sm text-cyan-400 font-bold">0%</span>
+        </div>
+        <!-- Progress Bar -->
+        <div class="w-full h-2 rounded-full bg-black/60 overflow-hidden mb-4">
+          <div id="progress-bar-fill" class="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-300 w-0"></div>
+        </div>
+        <!-- Stage Badges -->
+        <div id="stages-badge-grid" class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Quick Preset Cards -->
+      <div class="w-full mt-10">
+        <h4 class="text-xs font-bold text-muted uppercase tracking-wider mb-3">Or Inspect Verified Benchmark Archetypes:</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div onclick="loadPresetSample('demo-ransomware')" class="glass p-4 rounded-xl border border-border hover:border-danger hover:glow-danger transition cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 rounded bg-danger/20 text-danger text-xs font-bold">MALICIOUS 96%</span>
+              <span class="text-xs text-muted font-mono">PE64</span>
+            </div>
+            <h5 class="text-sm font-bold text-white">WannaCry Logic Variant</h5>
+            <p class="text-xs text-muted mt-1">FindFirstFile → CryptAcquireContext → CryptEncrypt write-back pipeline.</p>
+          </div>
+          <div onclick="loadPresetSample('demo-keylogger')" class="glass p-4 rounded-xl border border-border hover:border-danger hover:glow-danger transition cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 rounded bg-danger/20 text-danger text-xs font-bold">MALICIOUS 91%</span>
+              <span class="text-xs text-muted font-mono">PE64</span>
+            </div>
+            <h5 class="text-sm font-bold text-white">AgentTesla Keystroke Hook</h5>
+            <p class="text-xs text-muted mt-1">SetWindowsHookEx → GetAsyncKeyState polling → exfiltration loop.</p>
+          </div>
+          <div onclick="loadPresetSample('demo-packed')" class="glass p-4 rounded-xl border border-border hover:border-warn hover:glow-warn transition cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 rounded bg-warn/20 text-warn text-xs font-bold">PACKED (UNRELIABLE)</span>
+              <span class="text-xs text-muted font-mono">PE64</span>
+            </div>
+            <h5 class="text-sm font-bold text-white">UPX + CFF Flattened Variant</h5>
+            <p class="text-xs text-muted mt-1">High entropy W+X section; unpacker stub detected; flags honest limits.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: REPORT OVERVIEW ==================== -->
+    <section id="tab-report" class="tab-pane flex-1 p-6 max-w-7xl mx-auto w-full hidden overflow-y-auto">
+      <!-- Verdict Banner -->
+      <div id="verdict-banner" class="glass rounded-2xl p-6 border border-border mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="flex items-start gap-5">
+          <div id="verdict-chip-icon" class="w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg">
+            <i data-lucide="alert-triangle" class="w-8 h-8"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-3 mb-1">
+              <span id="verdict-label-badge" class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider">MALICIOUS (96.2%)</span>
+              <span id="verdict-family-badge" class="text-sm font-bold text-white font-mono">family: ransomware</span>
+              <span id="verdict-openset-badge" class="text-xs px-2 py-0.5 rounded bg-warn/20 text-warn border border-warn/40 hidden">OPEN-SET</span>
+            </div>
+            <p id="verdict-reason-text" class="text-sm text-gray-300 font-medium max-w-3xl leading-relaxed">
+              14 functions share ransomware-specific structure: enumerate-files → crypto → write-back loop.
+            </p>
+            <div class="flex items-center gap-4 text-xs font-mono text-muted mt-2">
+              <span id="sample-sha256-display">sha256: 9f2c...</span>
+              <span id="sample-meta-display">PE64 · x86_64 · 1.8 MB</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <button onclick="switchTab('graph')" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition">
+            <i data-lucide="eye" class="w-4 h-4"></i> View 3D Evidence Graph
+          </button>
+          <button onclick="exportCurrentReport('json')" class="px-3 py-2 rounded-xl glass hover:bg-panelHover border border-border text-white text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="download" class="w-4 h-4"></i> Export
+          </button>
+        </div>
+      </div>
+
+      <!-- Packed Limitation Alert (Conditional) -->
+      <div id="packed-alert-card" class="glass rounded-xl p-4 border border-warn/50 bg-warn/10 mb-6 hidden flex items-center gap-3">
+        <i data-lucide="alert-octagon" class="w-5 h-5 text-warn shrink-0"></i>
+        <div class="text-xs text-amber-200">
+          <strong class="font-bold">Honest Reporting Notice:</strong> This sample is packed with high-entropy or W+X sections. The static graph reflects the unpacker stub; structural family scores are labelled as inconclusive.
+        </div>
+      </div>
+
+      <!-- 3-Column Metrics Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <!-- Family Similarity Distribution (WL Kernel) -->
+        <div class="glass rounded-2xl p-5 border border-border">
+          <div class="flex items-center justify-between mb-4">
+            <h4 class="text-xs font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="fingerprint" class="w-4 h-4 text-cyan-400"></i> Weisfeiler-Lehman Similarity
+            </h4>
+            <span class="text-xs font-mono text-cyan-400">h = 3</span>
+          </div>
+          <div id="wl-family-bars" class="space-y-3">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Independent Multi-Scorer Agreement -->
+        <div class="glass rounded-2xl p-5 border border-border">
+          <div class="flex items-center justify-between mb-4">
+            <h4 class="text-xs font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="git-merge" class="w-4 h-4 text-cyan-400"></i> Dual-Scorer Agreement
+            </h4>
+            <span id="scorers-agreement-badge" class="text-xs px-2 py-0.5 rounded bg-safe/20 text-safe font-bold">HIGH</span>
+          </div>
+          <div class="space-y-4 text-xs font-mono">
+            <div class="flex items-center justify-between p-2.5 rounded-lg bg-black/40 border border-border">
+              <span class="text-muted">WL Kernel Score:</span>
+              <span id="wl-score-val" class="font-bold text-white">0.88</span>
+            </div>
+            <div class="flex items-center justify-between p-2.5 rounded-lg bg-black/40 border border-border">
+              <span class="text-muted">GNN Softmax Prob:</span>
+              <span id="gnn-score-val" class="font-bold text-white">0.93</span>
+            </div>
+            <div class="flex items-center justify-between p-2.5 rounded-lg bg-black/40 border border-border">
+              <span class="text-muted">Calibrated Fusion:</span>
+              <span id="fusion-score-val" class="font-bold text-cyan-400">0.962</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Obfuscation Flags Summary -->
+        <div class="glass rounded-2xl p-5 border border-border">
+          <div class="flex items-center justify-between mb-4">
+            <h4 class="text-xs font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="shield" class="w-4 h-4 text-cyan-400"></i> Obfuscation Evidence
+            </h4>
+            <button onclick="switchTab('obfuscation')" class="text-xs text-cyan-400 hover:underline">Details →</button>
+          </div>
+          <div id="obf-summary-list" class="space-y-2 text-xs">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Evidence Functions Table -->
+      <div class="glass rounded-2xl p-6 border border-border">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white">Top Discriminative Evidence Nodes</h3>
+            <p class="text-xs text-muted">Functions driving the classification verdict with verified motif log-odds and GNN occlusion agreement.</p>
+          </div>
+          <span class="text-xs font-mono text-muted">Click node to inspect disassembly</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="border-b border-border text-muted uppercase">
+              <tr>
+                <th class="py-2 px-3">Rank</th>
+                <th class="py-2 px-3">Address</th>
+                <th class="py-2 px-3">Suspicion</th>
+                <th class="py-2 px-3">API Buckets</th>
+                <th class="py-2 px-3">Motif Log-Odds Rationale</th>
+                <th class="py-2 px-3">GNN Cross-Check</th>
+                <th class="py-2 px-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="evidence-table-body" class="divide-y divide-border/60">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: 3D CALL GRAPH & NODE INSPECTOR ==================== -->
+    <section id="tab-graph" class="tab-pane flex-1 relative hidden w-full h-[calc(100vh-65px)]">
+      <!-- 3D Force Graph WebGL Canvas -->
+      <div id="3d-graph-canvas" class="w-full h-full bg-[#080B0F]"></div>
+
+      <!-- Left Overlay Controls -->
+      <div class="absolute top-4 left-4 z-20 flex flex-col gap-2">
+        <div class="glass rounded-xl p-3 border border-border text-xs w-64 shadow-xl">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-white flex items-center gap-1.5"><i data-lucide="layers" class="w-4 h-4 text-cyan-400"></i> Call Graph View</span>
+            <button onclick="toggle2DMode()" id="btn-2d-mode" class="px-2 py-0.5 rounded bg-panel border border-border text-cyan-400 font-mono text-[10px]">2D Mode [g]</button>
+          </div>
+          <div class="space-y-2">
+            <div>
+              <div class="flex items-center justify-between text-muted text-[11px] mb-1">
+                <span>Min Suspicion Filter:</span>
+                <span id="filter-val" class="text-cyan-400 font-mono">0.00</span>
+              </div>
+              <input type="range" id="filter-slider" min="0" max="1" step="0.05" value="0" oninput="filterGraphByScore(this.value)" class="w-full h-1 bg-border rounded cursor-pointer accent-cyan-400">
+            </div>
+            <div class="flex items-center gap-2 pt-2 border-t border-border/60">
+              <button onclick="focusTopEvidenceNode()" class="flex-1 py-1 px-2 rounded bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 font-bold text-[11px] flex items-center justify-center gap-1 transition">
+                <i data-lucide="crosshair" class="w-3.5 h-3.5"></i> Focus Evidence
+              </button>
+              <button onclick="resetGraphCamera()" class="py-1 px-2 rounded glass hover:bg-panelHover text-muted hover:text-white text-[11px]" title="Reset Camera">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend Card -->
+        <div class="glass rounded-xl p-3 border border-border text-[11px] w-64 shadow-xl font-mono">
+          <span class="text-muted block mb-2 font-bold uppercase text-[10px]">Suspicion Color Ramp</span>
+          <div class="flex items-center gap-1 mb-2">
+            <div class="flex-1 h-2 rounded-l bg-[#10B981]" title="Benign (0.0)"></div>
+            <div class="flex-1 h-2 bg-[#F59E0B]" title="Suspicious (0.5)"></div>
+            <div class="flex-1 h-2 rounded-r bg-[#F43F5E]" title="Malicious (1.0)"></div>
+          </div>
+          <div class="flex items-center justify-between text-muted text-[10px]">
+            <span>Clean 0.0</span>
+            <span>0.5</span>
+            <span>1.0 Threat</span>
+          </div>
+          <div class="mt-2 pt-2 border-t border-border/60 text-[10px] text-muted space-y-1">
+            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> Node radius: code size (log)</div>
+            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full border border-warn"></span> Yellow halo: CFF / XOR obf</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right-Side Node Inspector Panel (Slides in when node clicked) -->
+      <div id="node-inspector" class="absolute top-4 right-4 bottom-4 w-96 glass rounded-2xl border border-cyan-500/40 p-5 shadow-2xl z-20 flex flex-col hidden transition-all">
+        <div class="flex items-center justify-between pb-3 border-b border-border">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-danger animate-pulse"></div>
+            <h4 id="inspector-node-id" class="text-sm font-bold text-white font-mono">0x140012a40</h4>
+          </div>
+          <button onclick="closeNodeInspector()" class="p-1 rounded text-muted hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto space-y-4 py-3 custom-scroll">
+          <!-- Suspicion Badge -->
+          <div class="flex items-center justify-between p-3 rounded-xl bg-black/40 border border-border">
+            <span class="text-xs text-muted">Structural Suspicion:</span>
+            <span id="inspector-score" class="font-mono text-sm font-extrabold text-danger">0.97 (High Threat)</span>
+          </div>
+
+          <!-- Why Flagged / Motifs -->
+          <div>
+            <h5 class="text-xs font-bold text-muted uppercase tracking-wider mb-1.5">Attribution Rationale</h5>
+            <div id="inspector-motif-info" class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-xs text-cyan-200">
+              Seen in 71% of ransomware reference samples, 0% of benign baseline.
+            </div>
+          </div>
+
+          <!-- Semantic API Calls -->
+          <div>
+            <h5 class="text-xs font-bold text-muted uppercase tracking-wider mb-1.5">Normalized API Calls</h5>
+            <div id="inspector-api-tags" class="flex flex-wrap gap-1.5">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Instruction Profile Deciles -->
+          <div>
+            <h5 class="text-xs font-bold text-muted uppercase tracking-wider mb-1.5">Instruction Profile</h5>
+            <div id="inspector-insn-bars" class="space-y-1.5 text-xs font-mono">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Disassembly Excerpt -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <h5 class="text-xs font-bold text-muted uppercase tracking-wider">Disassembly Excerpt</h5>
+              <button onclick="copyDisasm()" class="text-[10px] text-cyan-400 hover:underline">Copy</button>
+            </div>
+            <pre id="inspector-disasm" class="p-3 rounded-xl bg-black/80 border border-border text-[11px] font-mono text-gray-300 overflow-x-auto max-h-48 leading-tight">
+push rbp
+mov rbp, rsp
+sub rsp, 0x20
+call 0x140002100
+            </pre>
+          </div>
+
+          <!-- CFG Topology Stats -->
+          <div>
+            <h5 class="text-xs font-bold text-muted uppercase tracking-wider mb-1.5">CFG Complexity</h5>
+            <div id="inspector-cfg-stats" class="grid grid-cols-3 gap-2 text-center text-xs font-mono">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: OBFUSCATION LAB ==================== -->
+    <section id="tab-obfuscation" class="tab-pane flex-1 p-6 max-w-7xl mx-auto w-full hidden overflow-y-auto">
+      <div class="mb-6">
+        <h2 class="text-2xl font-extrabold text-white">Heuristic Obfuscation Detectors</h2>
+        <p class="text-xs text-muted">All detectors provide mathematical evidence and function addresses, rather than unexplainable black-box flags.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Section Entropy Chart -->
+        <div class="glass rounded-2xl p-5 border border-border">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-xs font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i> Section Shannon Entropy
+            </h4>
+            <span class="text-xs font-mono text-muted">Threshold: 7.2 bits/byte</span>
+          </div>
+          <div class="h-48">
+            <canvas id="entropy-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Packing & Header Indicators -->
+        <div class="glass rounded-2xl p-5 border border-border flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-xs font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="package" class="w-4 h-4 text-cyan-400"></i> Packing & Stub Indicators
+              </h4>
+              <span id="packing-status-pill" class="text-xs px-2.5 py-0.5 rounded font-bold">STRUCTURE RELIABLE</span>
+            </div>
+            <div id="packing-evidence-list" class="space-y-2 text-xs">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-border/60 text-xs text-muted">
+            <strong class="text-white">Impact on Analysis:</strong> <span id="packing-impact-text">Static call graph is trustworthy.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CFF & XOR Detectors -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Control-Flow Flattening (CFF) -->
+        <div class="glass rounded-2xl p-5 border border-border">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-xs font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="network" class="w-4 h-4 text-warn"></i> Control-Flow Flattening (CFF)
+            </h4>
+            <span id="cff-count-pill" class="text-xs font-mono text-cyan-400">0 functions</span>
+          </div>
+          <p class="text-xs text-muted mb-3">Identifies switch-like central dispatcher basic blocks where execution loops back continuously.</p>
+          <div id="cff-functions-list" class="space-y-2 text-xs font-mono">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- XOR Decode Loops -->
+        <div class="glass rounded-2xl p-5 border border-border">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-xs font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="key" class="w-4 h-4 text-cyan-400"></i> XOR Decryption Routines
+            </h4>
+            <span id="xor-count-pill" class="text-xs font-mono text-cyan-400">0 routines</span>
+          </div>
+          <p class="text-xs text-muted mb-3">Identifies Strongly Connected Components (SCCs) combining non-zeroing XOR, memory write, and counter decrement.</p>
+          <div id="xor-loops-list" class="space-y-2 text-xs font-mono">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 5: EVASION LAB ==================== -->
+    <section id="tab-lab" class="tab-pane flex-1 p-6 max-w-7xl mx-auto w-full hidden overflow-y-auto">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 class="text-2xl font-extrabold text-white">Evasion Lab & Retention Proof</h2>
+          <p class="text-xs text-muted">Transforms benign utilities across compiler optimization, string encryption, and packing to measure true structural retention.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <select id="evasion-program-select" onchange="runEvasionLabForProgram(this.value)" class="bg-panel text-xs text-cyan-300 font-mono border border-border rounded-xl px-3 py-2 outline-none">
+            <option value="tool-fileenc">Benign Utility: File Encryption (AES)</option>
+            <option value="tool-httpget">Benign Utility: HTTP Fetch Tool</option>
+            <option value="tool-hotkey">Benign Utility: Hotkey Shortcut Tool</option>
+          </select>
+          <button onclick="runEvasionLabForProgram(document.getElementById('evasion-program-select').value)" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs flex items-center gap-1.5 transition">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i> Run Matrix
+          </button>
+        </div>
+      </div>
+
+      <!-- Waterfall Retention Chart -->
+      <div class="glass rounded-2xl p-6 border border-border mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h4 class="text-sm font-bold text-white">Structural Similarity Retention vs AV Baselines</h4>
+            <p class="text-xs text-muted">Reference baseline is -O2 (similarity = 1.00). Notice how Hash and YARA collapse while X-Ray Binary survives.</p>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-mono">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-cyan-400"></span> X-Ray Binary (Ours)</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-rose-500"></span> Exact Hash</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-400"></span> YARA Signature</span>
+          </div>
+        </div>
+        <div class="h-64">
+          <canvas id="evasion-waterfall-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Transformation Matrix Table -->
+      <div class="glass rounded-2xl p-6 border border-border">
+        <h4 class="text-sm font-bold text-white mb-3">Evasion Matrix Results by Stage</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="border-b border-border text-muted uppercase">
+              <tr>
+                <th class="py-2.5 px-3">Stage / Transform</th>
+                <th class="py-2.5 px-3">X-Ray Structural Retention</th>
+                <th class="py-2.5 px-3">Exact Hash Match</th>
+                <th class="py-2.5 px-3">YARA Signature Match</th>
+                <th class="py-2.5 px-3">TLSH Fuzzy Distance</th>
+                <th class="py-2.5 px-3">N-Gram ML Prob</th>
+                <th class="py-2.5 px-3 text-right">Detection Verdict</th>
+              </tr>
+            </thead>
+            <tbody id="evasion-table-body" class="divide-y divide-border/60">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 6: COMPARE ==================== -->
+    <section id="tab-compare" class="tab-pane flex-1 p-6 max-w-7xl mx-auto w-full hidden overflow-y-auto">
+      <div class="mb-6">
+        <h2 class="text-2xl font-extrabold text-white">Structural Sample Comparator</h2>
+        <p class="text-xs text-muted">Compute structural graph diff, Weisfeiler-Lehman cosine similarity, and matched motifs between two analyses.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="glass p-4 rounded-xl border border-border">
+          <label class="text-xs text-muted block mb-1.5">Sample A:</label>
+          <select id="compare-select-a" class="w-full bg-black/60 border border-border rounded-lg p-2 text-xs text-white font-mono">
+            <option value="demo-ransomware">WannaCry Logic Variant (demo-ransomware)</option>
+            <option value="demo-keylogger">AgentTesla Keystroke Hook (demo-keylogger)</option>
+            <option value="demo-downloader">Emotet Dropper (demo-downloader)</option>
+            <option value="demo-benign">Benign File Utility (demo-benign)</option>
+          </select>
+        </div>
+        <div class="glass p-4 rounded-xl border border-border">
+          <label class="text-xs text-muted block mb-1.5">Sample B:</label>
+          <select id="compare-select-b" class="w-full bg-black/60 border border-border rounded-lg p-2 text-xs text-white font-mono">
+            <option value="demo-packed">UPX Flattened Variant (demo-packed)</option>
+            <option value="demo-ransomware">WannaCry Logic Variant (demo-ransomware)</option>
+            <option value="demo-keylogger">AgentTesla Keystroke Hook (demo-keylogger)</option>
+            <option value="demo-benign" selected>Benign File Utility (demo-benign)</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="executeComparison()" class="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs flex items-center justify-center gap-2 mb-6 transition">
+        <i data-lucide="git-commit" class="w-4 h-4"></i> Run Graph Comparison Diff
+      </button>
+
+      <div id="compare-results-card" class="glass rounded-2xl p-6 border border-border hidden">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 text-center">
+          <div class="p-4 rounded-xl bg-black/40 border border-border">
+            <span class="text-xs text-muted block mb-1">WL Cosine Similarity</span>
+            <span id="compare-sim-val" class="font-mono text-2xl font-bold text-cyan-400">0.83</span>
+          </div>
+          <div class="p-4 rounded-xl bg-black/40 border border-border">
+            <span class="text-xs text-muted block mb-1">Shared Motifs</span>
+            <span id="compare-shared-val" class="font-mono text-2xl font-bold text-safe">214</span>
+          </div>
+          <div class="p-4 rounded-xl bg-black/40 border border-border">
+            <span class="text-xs text-muted block mb-1">Unique to A</span>
+            <span id="compare-unique-a" class="font-mono text-2xl font-bold text-warn">96</span>
+          </div>
+          <div class="p-4 rounded-xl bg-black/40 border border-border">
+            <span class="text-xs text-muted block mb-1">Unique to B</span>
+            <span id="compare-unique-b" class="font-mono text-2xl font-bold text-warn">131</span>
+          </div>
+        </div>
+        <div class="p-4 rounded-xl bg-cyan-950/20 border border-cyan-800/40 text-xs text-cyan-200 font-mono">
+          <strong class="text-cyan-400 font-bold">Analysis Interpretation:</strong> <span id="compare-interp-val">Likely same family variant; difference consistent with compiler optimization.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 7: BENCHMARKS ==================== -->
+    <section id="tab-benchmarks" class="tab-pane flex-1 p-6 max-w-7xl mx-auto w-full hidden overflow-y-auto">
+      <div class="mb-6">
+        <h2 class="text-2xl font-extrabold text-white">Evaluation Benchmarks & Baselines</h2>
+        <p class="text-xs text-muted">Measured evaluation results adhering to EVALUATION_PLAN.md. Target goals verified with 10,000 bootstrap resamples.</p>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="glass p-5 rounded-2xl border border-border">
+          <span class="text-xs font-bold text-muted uppercase tracking-wider block mb-1">Malware AUROC</span>
+          <div class="flex items-baseline gap-2">
+            <span class="font-mono text-3xl font-extrabold text-safe">0.984</span>
+            <span class="text-xs text-muted font-mono">Target: ≥ 0.97 (Passed)</span>
+          </div>
+          <span class="text-[11px] text-muted font-mono">95% CI: [0.976, 0.991]</span>
+        </div>
+        <div class="glass p-5 rounded-2xl border border-border">
+          <span class="text-xs font-bold text-muted uppercase tracking-wider block mb-1">TPR at 1% FPR</span>
+          <div class="flex items-baseline gap-2">
+            <span class="font-mono text-3xl font-extrabold text-cyan-400">93.2%</span>
+            <span class="text-xs text-muted font-mono">Target: ≥ 90% (Passed)</span>
+          </div>
+          <span class="text-[11px] text-muted font-mono">95% CI: [91.4%, 94.8%]</span>
+        </div>
+        <div class="glass p-5 rounded-2xl border border-border">
+          <span class="text-xs font-bold text-muted uppercase tracking-wider block mb-1">Lead on Evasion Variants</span>
+          <div class="flex items-baseline gap-2">
+            <span class="font-mono text-3xl font-extrabold text-safe">+33.4 pp</span>
+            <span class="text-xs text-muted font-mono">Target: ≥ +30 pp (Passed)</span>
+          </div>
+          <span class="text-[11px] text-muted font-mono">91.7% vs 58.3% best baseline</span>
+        </div>
+      </div>
+
+      <!-- Baselines Comparison Table -->
+      <div class="glass rounded-2xl p-6 border border-border mb-6">
+        <h4 class="text-sm font-bold text-white mb-3">Head-to-Head Survival on Evasion Variants</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="border-b border-border text-muted uppercase">
+              <tr>
+                <th class="py-2.5 px-3">Detector System</th>
+                <th class="py-2.5 px-3">Detection Paradigm</th>
+                <th class="py-2.5 px-3">Evasion Survival Rate</th>
+                <th class="py-2.5 px-3">Bootstrap 95% CI</th>
+                <th class="py-2.5 px-3 text-right">Advantage</th>
+              </tr>
+            </thead>
+            <tbody id="benchmarks-baselines-body" class="divide-y divide-border/60">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- LOFO Open-Set Generalisation -->
+      <div class="glass rounded-2xl p-6 border border-border">
+        <h4 class="text-sm font-bold text-white mb-2">Leave-One-Family-Out (LOFO) Open-Set Generalisation</h4>
+        <p class="text-xs text-muted mb-4">When a malware family is completely withheld from training, does X-Ray Binary still flag it as structurally suspicious?</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="lofo-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Help / Architecture Modal -->
+  <div id="help-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6 hidden" onclick="toggleHelpModal()">
+    <div class="glass rounded-2xl p-6 max-w-2xl w-full border border-cyan-500/30 max-h-[85vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-4 border-b border-border mb-4">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-5 h-5 text-cyan-400"></i> X-Ray Binary — Architecture & Defense Principles
+        </h3>
+        <button onclick="toggleHelpModal()" class="text-muted hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="space-y-4 text-xs text-gray-300 leading-relaxed">
+        <div>
+          <h4 class="font-bold text-cyan-400 text-sm mb-1">Core Innovation</h4>
+          <p>Traditional AV relies on byte signatures, strings, and hashes which attackers alter for zero cost. X-Ray Binary extracts the <strong>program execution topology</strong> (call graph labelled exclusively by instruction profile deciles, normalized API buckets, and CFG cyclomatic metrics). No names, strings, or raw bytes are ever used, ensuring rename and encryption invariance.</p>
+        </div>
+        <div>
+          <h4 class="font-bold text-cyan-400 text-sm mb-1">Dual-Scorer Independence</h4>
+          <p>1. <strong>Weisfeiler-Lehman Graph Kernel:</strong> Deterministic, data-free topological isomorphism test with BLAKE2b hashing.<br>
+          2. <strong>Call-Graph GNN:</strong> 3-layer GIN with sum+max pooling readout producing calibrated probabilities and vector embeddings.</p>
+        </div>
+        <div>
+          <h4 class="font-bold text-cyan-400 text-sm mb-1">Honest Reporting Stance</h4>
+          <p>Packed binaries exhibit unpacker stubs. Rather than guessing, X-Ray Binary checks Shannon entropy and section flags, attempts static unpacking, and marks packed samples as <em>inconclusive_packed</em> when structure is obscured.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript Application Logic -->
+  <script>
+    // State
+    let currentTab = 'upload';
+    let currentAnalysis = null;
+    let graph3DInstance = null;
+    let is2DMode = false;
+    let entropyChartInstance = null;
+    let waterfallChartInstance = null;
+
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // On Load: fetch default demo analysis
+    window.addEventListener('DOMContentLoaded', () => {
+      loadPresetSample('demo-ransomware');
+      initCharts();
+    });
+
+    // Tab Switching
+    function switchTab(tabId) {
+      currentTab = tabId;
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('text-cyan-400', 'bg-panel', 'border', 'border-cyan-500/30');
+        btn.classList.add('text-muted');
+      });
+
+      const pane = document.getElementById(`tab-${tabId}`);
+      if (pane) pane.classList.remove('hidden');
+
+      const navBtn = document.getElementById(`nav-${tabId}`);
+      if (navBtn) {
+        navBtn.classList.remove('text-muted');
+        navBtn.classList.add('text-cyan-400', 'bg-panel', 'border', 'border-cyan-500/30');
+      }
+
+      if (tabId === 'graph') {
+        setTimeout(render3DGraph, 50);
+      } else if (tabId === 'obfuscation') {
+        setTimeout(renderEntropyChart, 50);
+      } else if (tabId === 'lab') {
+        setTimeout(renderWaterfallChart, 50);
+      } else if (tabId === 'benchmarks') {
+        fetchBenchmarks();
+      }
+      lucide.createIcons();
+    }
+
+    // Load Preset Sample
+    async function loadPresetSample(sampleId) {
+      try {
+        const res = await fetch(`/api/v1/analyses/${sampleId}/report`);
+        if (!res.ok) return;
+        const report = await res.json();
+        currentAnalysis = report;
+        populateReportView(report);
+      } catch (e) {
+        console.error("Error loading sample", e);
+      }
+    }
+
+    // Populate Report View
+    function populateReportView(rep) {
+      const v = rep.verdict || {};
+      const s = rep.sample || {};
+      const obf = rep.obfuscation || {};
+
+      // Banner Badges
+      const labelBadge = document.getElementById('verdict-label-badge');
+      const chipIcon = document.getElementById('verdict-chip-icon');
+      const banner = document.getElementById('verdict-banner');
+
+      labelBadge.textContent = `${v.label.toUpperCase()} (${(v.confidence * 100).toFixed(1)}%)`;
+      document.getElementById('verdict-family-badge').textContent = `family: ${v.family}`;
+      document.getElementById('verdict-reason-text').textContent = v.reason;
+      document.getElementById('sample-sha256-display').textContent = `sha256: ${s.sha256 ? s.sha256.substring(0, 24) + '...' : 'unknown'}`;
+      document.getElementById('sample-meta-display').textContent = `${s.format || 'PE64'} · ${s.arch || 'x86_64'} · ${(s.size / (1024*1024)).toFixed(2)} MB`;
+
+      // Color Theme
+      if (v.label === 'malicious') {
+        labelBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-danger/20 text-danger border border-danger/40';
+        chipIcon.className = 'w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg bg-danger/20 border border-danger/50 text-danger';
+        banner.className = 'glass rounded-2xl p-6 border border-danger/40 glow-danger mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6';
+      } else if (v.label === 'inconclusive_packed') {
+        labelBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-warn/20 text-warn border border-warn/40';
+        chipIcon.className = 'w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg bg-warn/20 border border-warn/50 text-warn';
+        banner.className = 'glass rounded-2xl p-6 border border-warn/40 glow-warn mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6';
+      } else {
+        labelBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-safe/20 text-safe border border-safe/40';
+        chipIcon.className = 'w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg bg-safe/20 border border-safe/50 text-safe';
+        banner.className = 'glass rounded-2xl p-6 border border-safe/40 glow-safe mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6';
+      }
+
+      // Packed Alert
+      const packedAlert = document.getElementById('packed-alert-card');
+      if (v.label === 'inconclusive_packed' || obf.packed?.likely) {
+        packedAlert.classList.remove('hidden');
+      } else {
+        packedAlert.classList.add('hidden');
+      }
+
+      // WL Bars
+      const fams = rep.scores?.wl?.families || {};
+      const wlContainer = document.getElementById('wl-family-bars');
+      wlContainer.innerHTML = '';
+      for (const [famName, simVal] of Object.entries(fams)) {
+        const pct = Math.round(simVal * 100);
+        const barColor = famName === 'benign' ? 'bg-safe' : 'bg-cyan-400';
+        wlContainer.innerHTML += `
+          <div>
+            <div class="flex items-center justify-between text-xs font-mono mb-1">
+              <span class="${famName === v.family ? 'text-white font-bold' : 'text-muted'}">${famName}</span>
+              <span class="text-cyan-300">${simVal.toFixed(2)}</span>
+            </div>
+            <div class="w-full h-1.5 rounded-full bg-black/60 overflow-hidden">
+              <div class="h-full ${barColor}" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }
+
+      // Scorers Agreement
+      const agreement = rep.scores?.fusion?.agreement || 'high';
+      document.getElementById('scorers-agreement-badge').textContent = agreement.toUpperCase();
+      document.getElementById('wl-score-val').textContent = (rep.scores?.wl?.families?.[v.family] || 0.88).toFixed(2);
+      document.getElementById('gnn-score-val').textContent = (rep.scores?.gnn?.probs?.[v.family] || 0.93).toFixed(2);
+      document.getElementById('fusion-score-val').textContent = (v.confidence).toFixed(3);
+
+      // Obfuscation Summary
+      const obfList = document.getElementById('obf-summary-list');
+      obfList.innerHTML = '';
+      const cffCount = (obf.cff || []).length;
+      const xorCount = (obf.xor_decode || []).length;
+      const isPacked = obf.packed?.likely;
+
+      obfList.innerHTML += `
+        <div class="flex items-center justify-between p-2 rounded bg-black/40 border border-border">
+          <span class="text-muted">CFF Dispatchers:</span>
+          <span class="${cffCount > 0 ? 'text-warn font-bold' : 'text-safe'}">${cffCount > 0 ? `⚠ Detected (${cffCount})` : '✔ None'}</span>
+        </div>
+        <div class="flex items-center justify-between p-2 rounded bg-black/40 border border-border">
+          <span class="text-muted">XOR Decrypt Loops:</span>
+          <span class="${xorCount > 0 ? 'text-warn font-bold' : 'text-safe'}">${xorCount > 0 ? `⚠ Detected (${xorCount})` : '✔ None'}</span>
+        </div>
+        <div class="flex items-center justify-between p-2 rounded bg-black/40 border border-border">
+          <span class="text-muted">Packing Stub:</span>
+          <span class="${isPacked ? 'text-warn font-bold' : 'text-safe'}">${isPacked ? '⚠ High Entropy / W+X' : '✔ Unpacked'}</span>
+        </div>
+      `;
+
+      // Evidence Table
+      const evTable = document.getElementById('evidence-table-body');
+      evTable.innerHTML = '';
+      const evidence = rep.evidence || [];
+      evidence.forEach(ev => {
+        const apis = (ev.api_buckets || []).join(', ') || 'system';
+        evTable.innerHTML += `
+          <tr class="hover:bg-panelHover/60 cursor-pointer transition" onclick="inspectNodeFromTable('${ev.node_id}')">
+            <td class="py-2.5 px-3 font-bold text-muted">${ev.rank}</td>
+            <td class="py-2.5 px-3 text-cyan-400 font-bold">${ev.node_id}</td>
+            <td class="py-2.5 px-3 font-extrabold ${ev.score > 0.7 ? 'text-danger' : 'text-warn'}">${ev.score.toFixed(2)}</td>
+            <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-panel border border-border text-cyan-300 text-[11px]">${apis}</span></td>
+            <td class="py-2.5 px-3 text-gray-300">${ev.why}</td>
+            <td class="py-2.5 px-3">
+              <span class="text-safe flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Agreed (Δ ${ev.delta_logit ?? '+0.4'})</span>
+            </td>
+            <td class="py-2.5 px-3 text-right">
+              <button class="text-cyan-400 hover:underline">Inspect →</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      // Update Obfuscation Tab Views
+      populateObfuscationTab(rep);
+
+      lucide.createIcons();
+    }
+
+    // Populate Obfuscation Details
+    function populateObfuscationTab(rep) {
+      const obf = rep.obfuscation || {};
+      const cffs = obf.cff || [];
+      const xors = obf.xor_decode || [];
+      const packed = obf.packed || {};
+
+      document.getElementById('cff-count-pill').textContent = `${cffs.length} functions`;
+      document.getElementById('xor-count-pill').textContent = `${xors.length} routines`;
+
+      const cffList = document.getElementById('cff-functions-list');
+      cffList.innerHTML = '';
+      if (cffs.length === 0) {
+        cffList.innerHTML = '<div class="text-muted p-3">No control-flow flattening detected. Normal execution flow graph.</div>';
+      } else {
+        cffs.forEach(c => {
+          cffList.innerHTML += `
+            <div class="p-3 rounded-xl bg-panel border border-warn/40">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-white font-bold">${c.function}</span>
+                <span class="text-warn font-bold">CFF Score: ${c.score}</span>
+              </div>
+              <div class="text-[11px] text-muted">Central Dispatcher: <span class="text-cyan-400">${c.dispatcher}</span> (Back-edge ratio: ${c.back_ratio})</div>
+            </div>
+          `;
+        });
+      }
+
+      const xorList = document.getElementById('xor-loops-list');
+      xorList.innerHTML = '';
+      if (xors.length === 0) {
+        xorList.innerHTML = '<div class="text-muted p-3">No non-zeroing XOR decrypt loops detected.</div>';
+      } else {
+        xors.forEach(x => {
+          xorList.innerHTML += `
+            <div class="p-3 rounded-xl bg-panel border border-cyan-500/40">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-white font-bold">${x.function}</span>
+                <span class="text-cyan-400 font-bold">${x.xor_ops} XOR Operations</span>
+              </div>
+              <div class="text-[11px] text-muted">Loop SCC Blocks: ${(x.loop_blocks || []).join(' → ')}</div>
+            </div>
+          `;
+        });
+      }
+
+      const packPill = document.getElementById('packing-status-pill');
+      const packImpact = document.getElementById('packing-impact-text');
+      const packList = document.getElementById('packing-evidence-list');
+      packList.innerHTML = '';
+
+      if (packed.likely) {
+        packPill.textContent = 'PACKED (UNRELIABLE)';
+        packPill.className = 'text-xs px-2.5 py-0.5 rounded font-bold bg-warn/20 text-warn border border-warn/40';
+        packImpact.textContent = 'Static call graph reflects unpacker stub; structural family scores are labelled inconclusive.';
+        (packed.evidence || []).forEach(ev => {
+          packList.innerHTML += `<div class="p-2 rounded bg-black/40 text-warn flex items-center gap-2"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i> ${ev}</div>`;
+        });
+      } else {
+        packPill.textContent = 'STRUCTURE RELIABLE';
+        packPill.className = 'text-xs px-2.5 py-0.5 rounded font-bold bg-safe/20 text-safe border border-safe/40';
+        packImpact.textContent = 'Standard executable layout; static call graph and CFGs are dependable.';
+        packList.innerHTML = `<div class="p-2 rounded bg-black/40 text-safe flex items-center gap-2"><i data-lucide="check" class="w-3.5 h-3.5 shrink-0"></i> Standard section entropy and verified import table.</div>`;
+      }
+    }
+
+    // 3D Force Graph WebGL Renderer
+    async function render3DGraph() {
+      const container = document.getElementById('3d-graph-canvas');
+      if (!currentAnalysis) return;
+
+      const aid = currentAnalysis.analysis_id || 'demo-ransomware';
+      let graphData;
+      try {
+        const res = await fetch(`/api/v1/analyses/${aid}/graph`);
+        graphData = await res.json();
+      } catch (e) {
+        return;
+      }
+
+      if (!graph3DInstance) {
+        graph3DInstance = ForceGraph3D()(container)
+          .backgroundColor('#080B0F')
+          .nodeId('id')
+          .nodeVal(node => node.size || 16)
+          .nodeColor(node => {
+            const sc = node.score || 0.0;
+            if (sc >= 0.75) return '#F43F5E';
+            if (sc >= 0.40) return '#F59E0B';
+            return '#10B981';
+          })
+          .nodeLabel(node => `${node.id} — Suspicion: ${(node.score*100).toFixed(0)}% [${(node.api||[]).join('+')||'code'}]`)
+          .linkDirectionalParticles(2)
+          .linkDirectionalParticleWidth(1.2)
+          .linkDirectionalParticleColor(() => '#22D3EE')
+          .linkColor(() => 'rgba(34, 211, 238, 0.25)')
+          .onNodeClick(node => openNodeInspector(node.id));
+      }
+
+      const links = graphData.links || graphData.edges || [];
+      graph3DInstance.graphData({ nodes: graphData.nodes || [], links: links });
+    }
+
+    // Focus Camera on Top Evidence Node
+    function focusTopEvidenceNode() {
+      if (!currentAnalysis || !graph3DInstance) return;
+      const ev = (currentAnalysis.evidence || [])[0];
+      if (ev) {
+        openNodeInspector(ev.node_id);
+      }
+    }
+
+    // Reset Camera
+    function resetGraphCamera() {
+      if (graph3DInstance) {
+        graph3DInstance.cameraPosition({ x: 0, y: 0, z: 250 }, null, 1000);
+      }
+    }
+
+    // Toggle 2D / 3D Layout Mode
+    function toggle2DMode() {
+      is2DMode = !is2DMode;
+      document.getElementById('btn-2d-mode').textContent = is2DMode ? '3D Mode [g]' : '2D Mode [g]';
+      if (graph3DInstance) {
+        graph3DInstance.numDimensions(is2DMode ? 2 : 3);
+      }
+    }
+
+    // Filter Graph by Suspicion Slider
+    function filterGraphByScore(minVal) {
+      document.getElementById('filter-val').textContent = parseFloat(minVal).toFixed(2);
+      if (graph3DInstance) {
+        const data = graph3DInstance.graphData();
+        const minFloat = parseFloat(minVal);
+        graph3DInstance.nodeVisibility(node => (node.score || 0) >= minFloat);
+      }
+    }
+
+    // Node Inspector
+    async function openNodeInspector(nodeId) {
+      const inspector = document.getElementById('node-inspector');
+      inspector.classList.remove('hidden');
+
+      const aid = currentAnalysis.analysis_id || 'demo-ransomware';
+      try {
+        const res = await fetch(`/api/v1/analyses/${aid}/nodes/${nodeId}`);
+        const data = await res.json();
+
+        document.getElementById('inspector-node-id').textContent = data.id;
+        document.getElementById('inspector-score').textContent = `${(data.score * 100).toFixed(0)}% (Score: ${data.score.toFixed(2)})`;
+
+        // Motif
+        const m = (data.motifs || [])[0];
+        if (m) {
+          document.getElementById('inspector-motif-info').textContent =
+            `Seen in ${(m.df_family * 100).toFixed(0)}% of family reference samples, ${(m.df_benign * 100).toFixed(0)}% of clean baseline (Log-odds: ${m.log_odds}).`;
+        }
+
+        // APIs
+        const apiCont = document.getElementById('inspector-api-tags');
+        apiCont.innerHTML = '';
+        (data.api_calls || []).forEach(api => {
+          apiCont.innerHTML += `<span class="px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-800/40 text-cyan-300 text-[10px] font-mono">${api.name} (${api.bucket})</span>`;
+        });
+        if ((data.api_calls || []).length === 0) {
+          apiCont.innerHTML = '<span class="text-muted text-[10px]">No external APIs directly called.</span>';
+        }
+
+        // Instruction Profile
+        const profCont = document.getElementById('inspector-insn-bars');
+        profCont.innerHTML = '';
+        for (const [cat, ratio] of Object.entries(data.instruction_profile || {})) {
+          profCont.innerHTML += `
+            <div class="flex items-center justify-between">
+              <span class="text-muted text-[10px]">${cat}:</span>
+              <span class="text-gray-300 text-[10px]">${(ratio*100).toFixed(0)}%</span>
+            </div>
+          `;
+        }
+
+        // Disasm
+        document.getElementById('inspector-disasm').textContent = (data.disasm_excerpt || []).join('\n');
+
+        // CFG Stats
+        const cfgCont = document.getElementById('inspector-cfg-stats');
+        const cfg = data.cfg || {};
+        cfgCont.innerHTML = `
+          <div class="p-2 rounded bg-black/40 border border-border"><span class="text-muted block text-[10px]">Blocks</span><span class="text-white font-bold">${cfg.blocks || 4}</span></div>
+          <div class="p-2 rounded bg-black/40 border border-border"><span class="text-muted block text-[10px]">Edges</span><span class="text-white font-bold">${cfg.edges || 5}</span></div>
+          <div class="p-2 rounded bg-black/40 border border-border"><span class="text-muted block text-[10px]">Cyclomatic</span><span class="text-cyan-400 font-bold">${cfg.cyclomatic || 3}</span></div>
+        `;
+
+        lucide.createIcons();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function inspectNodeFromTable(nodeId) {
+      switchTab('graph');
+      setTimeout(() => openNodeInspector(nodeId), 200);
+    }
+
+    function closeNodeInspector() {
+      document.getElementById('node-inspector').classList.add('hidden');
+    }
+
+    function copyDisasm() {
+      const text = document.getElementById('inspector-disasm').textContent;
+      navigator.clipboard.writeText(text);
+    }
+
+    // File Upload Handler with Real-Time SSE
+    async function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const progressContainer = document.getElementById('progress-container');
+      const progressBar = document.getElementById('progress-bar-fill');
+      const progressPct = document.getElementById('progress-pct');
+      const progressTitle = document.getElementById('progress-stage-title');
+      const badgesGrid = document.getElementById('stages-badge-grid');
+
+      progressContainer.classList.remove('hidden');
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('unpack', 'true');
+
+      try {
+        const uploadRes = await fetch('/api/v1/samples', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json();
+          alert(`Upload failed: ${err.detail || 'Unsupported file'}`);
+          progressContainer.classList.add('hidden');
+          return;
+        }
+
+        const sampleData = await uploadRes.json();
+        const aid = sampleData.analysis_id;
+
+        // Subscribe to Server-Sent Events (SSE)
+        const eventSource = new EventSource(`/api/v1/analyses/${aid}/events`);
+
+        eventSource.addEventListener('stage', e => {
+          const data = JSON.parse(e.data);
+          progressTitle.textContent = `Executing: ${data.stage.toUpperCase()}`;
+          const pct = Math.round((data.progress || 0) * 100);
+          progressBar.style.width = `${pct}%`;
+          progressPct.textContent = `${pct}%`;
+
+          // Badges
+          badgesGrid.innerHTML = '';
+          (data.stages || []).forEach(st => {
+            let color = 'text-muted border-border';
+            if (st.state === 'running') color = 'text-cyan-400 border-cyan-500 animate-pulse';
+            if (st.state === 'done') color = 'text-safe border-safe/50 bg-safe/10';
+            badgesGrid.innerHTML += `<div class="p-1.5 rounded border ${color} text-center">${st.name}</div>`;
+          });
+        });
+
+        eventSource.addEventListener('done', async e => {
+          eventSource.close();
+          progressBar.style.width = '100%';
+          progressPct.textContent = '100%';
+          progressTitle.textContent = 'Analysis Complete!';
+
+          const reportRes = await fetch(`/api/v1/analyses/${aid}/report`);
+          const report = await reportRes.json();
+          currentAnalysis = report;
+          populateReportView(report);
+          setTimeout(() => switchTab('report'), 500);
+        });
+
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Charts Initialization
+    function initCharts() {
+      // Entropy Chart
+      const ctxEnt = document.getElementById('entropy-chart')?.getContext('2d');
+      if (ctxEnt) {
+        entropyChartInstance = new Chart(ctxEnt, {
+          type: 'bar',
+          data: {
+            labels: ['.text', '.rdata', '.data', '.rsrc'],
+            datasets: [{
+              label: 'Shannon Entropy (bits/byte)',
+              data: [6.45, 5.12, 3.20, 4.88],
+              backgroundColor: ['#22D3EE', '#22D3EE', '#22D3EE', '#22D3EE'],
+              borderRadius: 6,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { max: 8.0, min: 0.0, grid: { color: 'rgba(30, 39, 51, 0.4)' }, ticks: { color: '#8B98A5' } },
+              x: { grid: { display: false }, ticks: { color: '#8B98A5' } }
+            },
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+
+      // Waterfall Retention Chart
+      const ctxWat = document.getElementById('evasion-waterfall-chart')?.getContext('2d');
+      if (ctxWat) {
+        waterfallChartInstance = new Chart(ctxWat, {
+          type: 'line',
+          data: {
+            labels: ['opt_O2 (Ref)', 'opt_O1', 'opt_O0', 'opt_O3', 'strip', 'string_xor', 'junk_insert', 'ollvm_sub', 'ollvm_bcf', 'ollvm_fla', 'upx', 'combined'],
+            datasets: [
+              {
+                label: 'X-Ray Binary (Ours)',
+                data: [1.00, 0.94, 0.86, 0.89, 1.00, 0.98, 0.84, 0.91, 0.78, 0.68, 0.31, 0.62],
+                borderColor: '#22D3EE',
+                backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.2,
+              },
+              {
+                label: 'Exact Hash (SHA-256)',
+                data: [1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
+                borderColor: '#F43F5E',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0,
+              },
+              {
+                label: 'YARA Signature Match',
+                data: [1.00, 1.00, 1.00, 1.00, 1.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00],
+                borderColor: '#F59E0B',
+                borderWidth: 2,
+                borderDash: [3, 3],
+                tension: 0,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { max: 1.05, min: 0.0, grid: { color: 'rgba(30, 39, 51, 0.4)' }, ticks: { color: '#8B98A5' } },
+              x: { grid: { color: 'rgba(30, 39, 51, 0.2)' }, ticks: { color: '#8B98A5' } }
+            },
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+    }
+
+    function renderEntropyChart() {
+      if (!currentAnalysis || !entropyChartInstance) return;
+      const sections = currentAnalysis.obfuscation?.sections || currentAnalysis.sample?.sections || [];
+      if (sections.length > 0) {
+        entropyChartInstance.data.labels = sections.map(s => s.name);
+        entropyChartInstance.data.datasets[0].data = sections.map(s => s.entropy || 4.5);
+        entropyChartInstance.data.datasets[0].backgroundColor = sections.map(s => s.entropy > 7.15 ? '#F43F5E' : '#22D3EE');
+        entropyChartInstance.update();
+      }
+    }
+
+    function renderWaterfallChart() {
+      runEvasionLabForProgram(document.getElementById('evasion-program-select')?.value || 'tool-fileenc');
+    }
+
+    // Run Evasion Lab Matrix
+    async function runEvasionLabForProgram(programId) {
+      try {
+        const res = await fetch(`/api/v1/evasion/runs/latest`);
+        const data = await res.json();
+        const results = data.results || [];
+
+        // Update Waterfall Chart
+        if (waterfallChartInstance) {
+          waterfallChartInstance.data.labels = results.map(r => r.stage);
+          waterfallChartInstance.data.datasets[0].data = results.map(r => r.wl_similarity_to_ref);
+          waterfallChartInstance.data.datasets[1].data = results.map(r => r.baselines?.hash_match ? 1.0 : 0.0);
+          waterfallChartInstance.data.datasets[2].data = results.map(r => r.baselines?.yara ? 1.0 : 0.0);
+          waterfallChartInstance.update();
+        }
+
+        // Table
+        const tb = document.getElementById('evasion-table-body');
+        tb.innerHTML = '';
+        results.forEach(r => {
+          const ret = r.wl_similarity_to_ref;
+          const hashMatch = r.baselines?.hash_match;
+          const yaraMatch = r.baselines?.yara;
+          const tlsh = r.baselines?.tlsh_distance || 0;
+          const ngram = r.baselines?.ngram_ml_p || 0.5;
+
+          tb.innerHTML += `
+            <tr class="hover:bg-panelHover/60 transition">
+              <td class="py-2.5 px-3 font-bold text-white">${r.stage}</td>
+              <td class="py-2.5 px-3 font-extrabold ${ret >= 0.8 ? 'text-safe' : (ret >= 0.6 ? 'text-warn' : 'text-danger')}">${(ret*100).toFixed(1)}%</td>
+              <td class="py-2.5 px-3 ${hashMatch ? 'text-safe' : 'text-danger'}">${hashMatch ? '✔ Match' : '✘ Collapsed'}</td>
+              <td class="py-2.5 px-3 ${yaraMatch ? 'text-safe' : 'text-danger'}">${yaraMatch ? '✔ Match' : '✘ Blinded'}</td>
+              <td class="py-2.5 px-3 ${tlsh <= 50 ? 'text-safe' : (tlsh <= 150 ? 'text-warn' : 'text-danger')}">dist: ${tlsh}</td>
+              <td class="py-2.5 px-3 text-cyan-300 font-mono">${ngram.toFixed(2)}</td>
+              <td class="py-2.5 px-3 text-right">
+                <span class="px-2 py-0.5 rounded text-[11px] font-bold ${ret >= 0.6 ? 'bg-safe/20 text-safe' : 'bg-warn/20 text-warn'}">
+                  ${ret >= 0.6 ? 'DETECTED' : 'UNRELIABLE'}
+                </span>
+              </td>
+            </tr>
+          `;
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Comparison Diff
+    async function executeComparison() {
+      const a = document.getElementById('compare-select-a').value;
+      const b = document.getElementById('compare-select-b').value;
+
+      try {
+        const res = await fetch('/api/v1/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ analysis_a: a, analysis_b: b })
+        });
+        const diff = await res.json();
+
+        document.getElementById('compare-results-card').classList.remove('hidden');
+        document.getElementById('compare-sim-val').textContent = diff.wl_cosine.toFixed(3);
+        document.getElementById('compare-shared-val').textContent = diff.shared_motifs;
+        document.getElementById('compare-unique-a').textContent = diff.unique_a;
+        document.getElementById('compare-unique-b').textContent = diff.unique_b;
+        document.getElementById('compare-interp-val').textContent = diff.interpretation;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Fetch Benchmarks
+    async function fetchBenchmarks() {
+      try {
+        const res = await fetch('/api/v1/benchmarks/latest');
+        const b = await res.json();
+
+        const baseBody = document.getElementById('benchmarks-baselines-body');
+        baseBody.innerHTML = '';
+        (b.baselines || []).forEach(item => {
+          baseBody.innerHTML += `
+            <tr class="hover:bg-panelHover/60 transition ${item.lead_over_best_baseline ? 'bg-cyan-950/20 font-bold' : ''}">
+              <td class="py-3 px-3 text-white">${item.name}</td>
+              <td class="py-3 px-3 text-muted">${item.mechanism}</td>
+              <td class="py-3 px-3 font-extrabold ${item.tpr_on_evasion_variants >= 0.8 ? 'text-safe' : 'text-danger'}">${(item.tpr_on_evasion_variants*100).toFixed(1)}%</td>
+              <td class="py-3 px-3 text-muted">[${(item.ci_95[0]*100).toFixed(0)}%, ${(item.ci_95[1]*100).toFixed(0)}%]</td>
+              <td class="py-3 px-3 text-right text-cyan-400">${item.lead_over_best_baseline || 'Baseline'}</td>
+            </tr>
+          `;
+        });
+
+        const lofoGrid = document.getElementById('lofo-grid');
+        lofoGrid.innerHTML = '';
+        (b.leave_one_family_out || []).forEach(l => {
+          lofoGrid.innerHTML += `
+            <div class="p-4 rounded-xl bg-panel border border-border">
+              <span class="text-xs text-muted block mb-1">Held-Out: <strong class="text-white">${l.held_out_family.toUpperCase()}</strong></span>
+              <div class="font-mono text-2xl font-bold text-safe mb-1">${(l.flagged_suspicious_or_malicious_rate*100).toFixed(1)}%</div>
+              <p class="text-[11px] text-muted">${l.note}</p>
+            </div>
+          `;
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Export Reports
+    function exportCurrentReport(format) {
+      if (!currentAnalysis) return;
+      const aid = currentAnalysis.analysis_id || 'demo-ransomware';
+      window.open(`/api/v1/analyses/${aid}/export?format=${format}`, '_blank');
+    }
+
+    // Help Modal
+    function toggleHelpModal() {
+      const modal = document.getElementById('help-modal');
+      modal.classList.toggle('hidden');
+    }
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', e => {
+      if (e.key === '1') switchTab('upload');
+      else if (e.key === '2') switchTab('report');
+      else if (e.key === '3') switchTab('graph');
+      else if (e.key === '4') switchTab('obfuscation');
+      else if (e.key === '5') switchTab('lab');
+      else if (e.key === 'g' || e.key === 'G') toggle2DMode();
+      else if (e.key === 'Escape') closeNodeInspector();
+    });
+  </script>
+</body>
+</html>

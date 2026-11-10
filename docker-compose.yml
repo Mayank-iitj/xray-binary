@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  xray-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: xray-binary-api
+    ports:
+      - "8000:8000"
+    environment:
+      - XRAY_MAX_UPLOAD_MB=50
+      - XRAY_WL_DEPTH=3
+      - XRAY_SEED=1337
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
