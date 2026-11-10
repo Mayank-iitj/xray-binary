@@ -47,3 +47,4 @@ if (fs.existsSync('apps/web/assets/favicon.ico')) {
 }
 
 console.log('[build.js] Static frontend distribution ready for Vercel deployment!');
+
