@@ -28,3 +28,6 @@ dev = [
     "hypothesis>=6.98.0",
 ]
 
+[project.scripts]
+xray = "xray_core.cli:main"
+

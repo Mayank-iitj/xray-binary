@@ -53,7 +53,8 @@ All metrics below are verified on a stratified time-based split across reference
 ```bash
 docker compose up --build
 ```
-Navigate to `http://localhost:8000` to open the interactive Cyber Dashboard.
+- Navigate to `http://localhost:8000` to experience the art-directed **Three.js & Lenis interactive landing page**.
+- Click **"Launch Console"** or navigate directly to `http://localhost:8000/app` for the **Eyris Cyber SOC Dashboard**.
 
 ### 2. Run Locally with Python
 ```bash
@@ -71,6 +72,18 @@ make demo
 ```
 
 Open `http://localhost:8000` in your browser.
+
+### 3. Analyst Command-Line Tool (`xray`)
+```bash
+# Display official verified benchmark evaluation table
+python packages/xray_core/cli.py benchmarks
+
+# Perform structural triage on a PE or ELF binary
+python packages/xray_core/cli.py scan path/to/sample.exe
+
+# Structurally compare two binary samples
+python packages/xray_core/cli.py compare sample1.exe sample2.exe
+```
 
 ---
 
